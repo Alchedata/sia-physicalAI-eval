@@ -57,9 +57,13 @@ Physical AI systems increasingly combine world models, simulation, and vision-la
 
 Physical AI is entering a new phase. World models can generate plausible futures, simulators can produce large-scale synthetic robot experience, and vision-language-action (VLA) models are becoming general-purpose robotic policies. Yet evaluation remains largely static: fixed task lists, fixed simulators, fixed metrics, and fixed success definitions. This creates a dangerous mismatch. A model can appear to improve on a benchmark while the benchmark itself becomes less informative, less discriminative, or less predictive of deployment behavior.
 
+Consider a tabletop robot that reliably completes a benchmark placement task: move a cup into a tray. In deployment, the same policy fails when the cup is slightly wet, the tray wall is a few centimeters closer, and glare hides the contact point. A video world model predicts a smooth successful placement; the simulator reports success because its friction model is too forgiving; the real robot tips the cup and then repeats the same unsafe grasp. A static benchmark records this as an isolated failure, if it records it at all. A living evaluator should instead ask what this failure reveals: which physical factor mattered, which prediction was wrong, which critic missed the risk, and what new regression test should be added.
+
 This white paper proposes a new evaluation paradigm: \emph{self-evolving agents for Physical AI evaluation}. Instead of treating evaluation as a one-time benchmark, we propose an agentic system that observes model behavior, mines failures, generates new tests, validates them in simulation and the real world, updates the evaluation suite, and tracks when existing evals become obsolete. This framing is motivated by recent arguments that evaluation protocols themselves break as model capabilities shift~\cite{wang2025evalsbreak}, and extends that argument to embodied systems where failures can arise from contact dynamics, sensing, language grounding, planning, control, safety, and sim-to-real mismatch.
 
 We focus on two coupled model families. The first is \emph{world models}: video/action-conditioned predictors, neural simulators, object-centric dynamics models, and foundation world models. The second is \emph{robotics models}: VLA policies, diffusion or flow-based policies, hierarchical controllers, and multi-embodiment robot foundation models. Our core claim is that these systems should not be evaluated separately. A world model is useful only if it preserves the physical and causal structure needed for embodied action. A robot policy is trustworthy only if it remains robust under meaningful physical variation.
+
+\system is best understood as an evaluation protocol and infrastructure pattern, not a single benchmark or model. Its novelty is the integration of four ideas that are usually separated: adaptive test generation, trace-level evaluation memory, joint world-model and robot-policy assessment, and promotion rules tied to real-world predictive validity. In this framing, a benchmark item is not merely a task; it is a provenance-rich record of why the task matters, which failures it exposes, and how well it predicts behavior outside the benchmark.
 
 \begin{quote}
 \emph{Physical AI should not be evaluated only by asking whether a robot succeeds on today's tasks. It should be evaluated by asking whether the evaluation system can continuously discover tomorrow's failures.}
@@ -97,12 +101,13 @@ These failure modes are especially dangerous in robotics because embodied failur
     \node[warn, below=of fixed] (sat) {Saturation\\or gaming};
     \node[warn, below=of score] (drift) {Deployment\\drift};
     \node[box, below right=0.35cm and -0.2cm of sat] (living) {Adaptive tests\\with trace memory};
+    \coordinate[left=0.55cm of sat.west] (loop);
     \draw[arrow] (fixed) -- (score);
     \draw[arrow] (fixed) -- (sat);
     \draw[arrow] (score) -- (drift);
     \draw[arrow] (sat) -- (living);
     \draw[arrow] (drift) -- (living);
-    \draw[arrow] (living.west) .. controls +(-1.2,0.55) and +(-0.7,-0.55) .. (fixed.west);
+    \draw[arrow, rounded corners=4pt] (living.west) -- (loop |- living.west) -- (loop |- fixed.west) -- (fixed.west);
   \end{tikzpicture}
   \caption{Static benchmarks compress behavior into scores, while living evaluation routes saturation, metric gaming, and deployment drift back into new tests.}
   \Description{A flow diagram showing a fixed task distribution leading to aggregate scores, saturation or gaming, and deployment drift. These feed into adaptive tests with trace memory, which loop back to update the task distribution.}
@@ -127,6 +132,12 @@ For robotics, the key point is that visual realism is not enough. RoboWM-Bench a
 
 Large-scale simulation benchmarks provide the substrate for evolving evaluation distributions. RoboCasa provides realistic household environments and tasks for generalist robot learning~\cite{nasiriany2024robocasa}. RoboCasa365 expands toward large-scale household mobile manipulation, multi-task learning, foundation model training, and lifelong learning~\cite{robocasa3652026}. BEHAVIOR-1K introduces 1,000 human-centered everyday activities across realistic scenes with rich physical and semantic object properties~\cite{li2024behavior1k}. Such benchmarks are essential, but we argue that they should become sources of evolving test distributions rather than fixed leaderboards.
 
+\subsection{What changes in a living evaluator}
+
+\system builds on familiar ideas including active learning, adversarial evaluation, procedural task generation, red teaming, simulator validation, and continuous regression testing. The difference is the unit of optimization. Active learning usually selects data to improve a model; \system selects evidence to improve an evaluation distribution. Red teaming often produces isolated failures; \system turns failures into validated benchmark artifacts with provenance and recurrence tracking. Simulator validation often asks whether simulation is realistic; \system asks which simulator or world-model results are predictive for which task families, embodiments, and physical phenomena.
+
+This shift matters because Physical AI evaluation is not only a scoring problem. It is an infrastructure problem: how to preserve behavioral evidence, compare predictions against reality, detect benchmark obsolescence, and decide which new tests deserve institutional status. The contribution of \system is therefore not a new metric alone, but a closed-loop protocol for keeping metrics, tasks, critics, and simulators accountable to deployment outcomes.
+
 \section{Architecture Overview}
 
 Figure~\ref{fig:architecture} summarizes the proposed architecture. The system contains seven major components: subject models, task and scenario evolution, world-model evaluation, VLA/robot evaluation, critic ensembles, sim-real calibration, and evaluation memory.
@@ -142,6 +153,10 @@ Figure~\ref{fig:architecture} summarizes the proposed architecture. The system c
 The design principle is that evaluation outputs are not the end of the process. They feed back into the next generation of tasks, critics, metrics, and model-improvement signals. The evaluator is itself an agent: it observes behavior, forms hypotheses about weaknesses, designs experiments, runs them across world models and robots, and updates the evaluation suite.
 
 The architecture is intentionally model-agnostic. A subject model can be a closed-source VLA policy, an open robot foundation model, a learned simulator, a video world model, or a conventional controller wrapped in a planning stack. What matters is that each run produces enough evidence for comparison: initial scene state, instruction, action trace, predicted future, observed future, success labels, critic scores, uncertainty, and provenance. This makes the evaluator a common measurement layer across otherwise heterogeneous robotics stacks.
+
+The running cup-and-tray example illustrates the intended loop. The original failure is stored as a trace, including the wet cup, tray geometry, glare, robot actions, predicted world-model future, simulator outcome, real video, contact event, and critic judgments. The evaluator then creates paired variants: dry versus wet cup, wide versus narrow tray, clear view versus glare, and alternative grasp strategies. It validates that each variant is physically plausible and solvable by at least one competent policy or human teleoperator. It promotes the variants that expose reproducible, discriminative, deployment-relevant failures, while archiving variants that are redundant or unrealistic. Subsequent model releases are evaluated against this family of tests, and the system tracks whether success on them predicts safer real-world placements.
+
+\system is not intended to replace fixed benchmarks. Stable benchmark slices remain necessary for longitudinal comparison, public reporting, and reproducibility. The point is to surround these fixed slices with an adaptive layer that detects when they are saturated, discovers new failure modes, and provides a principled path for promoting new tests without erasing historical comparability.
 
 \section{Subject Models Under Evaluation}
 
@@ -223,6 +238,28 @@ When models begin to solve a task family, the system expands difficulty: longer 
   \Description{A pipeline from failure traces or saturated tasks to attribution, mutation operators, validation, and promoted tests. Failed validation routes candidates to repair, archive, or discard before returning to mutation.}
   \label{fig:task-evolution}
 \end{figure*}
+
+Promotion should be conservative. A generated test becomes part of the benchmark distribution only when it satisfies criteria such as those in Table~\ref{tab:promotion}. This prevents the evaluator from drifting toward strange adversarial cases that are easy to generate but irrelevant to deployment.
+
+\begin{table*}[t]
+\centering
+\caption{Promotion criteria for turning generated scenarios into benchmark items.}
+\label{tab:promotion}
+\small
+\begin{tabular}{p{0.20\textwidth}p{0.35\textwidth}p{0.36\textwidth}}
+\toprule
+\textbf{Criterion} & \textbf{Meaning} & \textbf{Example in the cup-and-tray task} \\
+\midrule
+Physical validity & The scene and outcome obey plausible geometry, material, and contact constraints. & Wet-cup friction values are within measured or documented ranges. \\
+Solvability & A competent policy, teleoperator, or planner can complete the task safely. & A human teleoperator can place the cup using a slower approach and adjusted grasp. \\
+Reproducibility & The failure or capability distinction recurs across repeated trials or seeds. & The same policy repeatedly tips the cup under glare and narrow-tray conditions. \\
+Non-redundancy & The scenario adds information beyond existing benchmark cases. & The test isolates slip at tray contact rather than duplicating generic grasp failure. \\
+Discriminative power & The scenario separates models, policies, or critic configurations. & A policy with force-aware recovery succeeds while a vision-only policy fails. \\
+Deployment relevance & The scenario reflects a credible real-world condition or safety concern. & Condensation, glare, and tight tray clearance occur in household serving tasks. \\
+Predictive validity & Performance on the scenario correlates with real-world outcomes or known incident classes. & Passing the test predicts fewer cup-tip failures in real robot trials. \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \section{World-Model Evaluation}
 
@@ -357,6 +394,27 @@ The memory should be organized around immutable evaluation records. Each record 
 
 A useful memory also needs indexing for retrieval. Engineers should be able to query for all failures involving transparent containers, all tasks where simulation overpredicted success, all policies that improved average success while increasing unsafe contact, or all world-model predictions that were visually plausible but physically invalid. These retrieval capabilities turn evaluation history into a debugging and research asset rather than a passive log archive.
 
+Table~\ref{tab:memory-schema} sketches the minimum record structure. The schema is intentionally evidence-centered: generated summaries, critic scores, and benchmark decisions are derived from auditable artifacts rather than replacing them.
+
+\begin{table*}[t]
+\centering
+\caption{Minimal evaluation-memory record for traceable, revisable evaluation.}
+\label{tab:memory-schema}
+\small
+\begin{tabular}{p{0.22\textwidth}p{0.34\textwidth}p{0.36\textwidth}}
+\toprule
+\textbf{Field group} & \textbf{Contents} & \textbf{Why it matters} \\
+\midrule
+Task and scene & Instruction, success predicate, scene assets, object properties, physical parameters, safety constraints. & Makes task mutations interpretable and reproducible. \\
+Embodiment and model & Robot embodiment, controller stack, policy version, world-model version, simulator version, calibration settings. & Separates model capability from embodiment and tooling effects. \\
+Run evidence & Observations, actions, predicted futures, simulator rollouts, real videos, trajectories, contact events, interventions. & Preserves the behavioral trace needed for later reanalysis. \\
+Judgments & Automatic critic scores, human labels, uncertainty, disagreement flags, failure attribution, explanations. & Allows multiple judges to be compared and recalibrated. \\
+Provenance and status & Source benchmark or failure, mutation lineage, validation results, promotion decision, retirement history. & Prevents opaque benchmark drift and supports auditability. \\
+Predictive validity & Correlation with real outcomes, validity region, confidence intervals, known counterexamples. & Records where the evaluation can and cannot be trusted. \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
 \section{The Self-Evolution Loop}
 
 \system iterates through seven steps.
@@ -373,6 +431,14 @@ A useful memory also needs indexing for retrieval. Engineers should be able to q
 
 The loop should run at multiple cadences. Fast simulator and world-model checks can run continuously on every model version. More expensive real-robot calibration can run on a budgeted schedule or be triggered by high-uncertainty disagreements. Human review should be reserved for ambiguous, safety-relevant, or benchmark-promotion cases. This tiered cadence makes the system practical: most tests are cheap, but the evaluator still maintains a real-world anchor.
 
+\section{Worked Example: From Failure to Benchmark}
+
+The cup-and-tray failure can be converted into a benchmark family through a concrete sequence. First, the evaluator captures the original trace: instruction, scene geometry, wet cup surface, glare, robot action sequence, world-model prediction, simulator rollout, real video, contact event, and final failure label. Second, critic disagreement is recorded: the semantic critic may judge the cup as nearly placed, while the physics and safety critics flag unstable contact and repeated unsafe force. Third, the task evolution module generates paired counterfactuals that isolate likely causes, including dry versus wet cup, wide versus narrow tray, direct view versus glare, and nominal versus force-aware recovery.
+
+Fourth, the evaluator validates these candidates. Unrealistic variants are rejected, redundant variants are archived, and solvable variants are kept only if they expose a reproducible distinction among policies or world models. Fifth, a small subset is promoted as a benchmark family with provenance. The promoted family no longer asks only ``can the robot place a cup in a tray?'' It asks whether the robot can place a cup under realistic contact uncertainty, whether the world model predicts slip risk, whether the simulator is calibrated for the relevant materials, and whether the policy changes behavior after detecting incipient failure.
+
+Finally, the family is monitored over time. If all frontier policies eventually solve the basic wet-cup case, the evaluator can retain it as a regression test while expanding to tighter clearances, more ambiguous visual conditions, or human-proximity constraints. If the case stops predicting real-world failures, its validity region is narrowed or it is retired from headline scoring. The benchmark is therefore not merely larger; it is more accountable to the evidence that made it useful.
+
 \section{Metrics}
 
 Table~\ref{tab:metrics} summarizes metric families for world models, robot policies, and the self-evolving evaluator itself.
@@ -381,6 +447,7 @@ Table~\ref{tab:metrics} summarizes metric families for world models, robot polic
 \centering
 \caption{Metric families for self-evolving Physical AI evaluation.}
 \label{tab:metrics}
+\small
 \begin{tabular}{p{0.22\textwidth}p{0.32\textwidth}p{0.38\textwidth}}
 \toprule
 \textbf{Target} & \textbf{Metric family} & \textbf{Example questions} \\
@@ -476,11 +543,19 @@ A self-evolving evaluator introduces risks. Generated tests may be unrealistic, 
 
 Another limitation is that predictive validity may vary by embodiment and task family. A world model that ranks tabletop manipulation policies well may not rank humanoid locomotion policies. The system should therefore maintain per-domain validity estimates rather than a single global trust score.
 
+There is also a governance risk. If a living benchmark is controlled by a small number of labs or vendors, its evaluation memory can become an opaque source of power: it may define which failures matter, which simulators are trusted, and which models appear safe. Public benchmark slices, auditable promotion records, and independent reproduction are therefore essential. A living evaluator should preserve more evidence than it exposes in public leaderboards, but it should still make its promotion logic and validity claims inspectable.
+
+The adaptive loop can also narrow rather than broaden evaluation if it overfits to the failures it already knows how to generate. A system that repeatedly mutates cup-placement failures may miss navigation, human interaction, deformable objects, or long-horizon planning failures. Diversity constraints and periodic human-led scenario review are needed to keep the search space broad.
+
+Finally, predictive validity is not a permanent property. It can decay as robot hardware changes, policies learn to exploit critics, simulators are updated, or deployment contexts shift. This means benchmark maintenance becomes a first-class scientific activity rather than a one-time release. The burden is higher than for static benchmarks, but the alternative is worse: evaluation artifacts that remain stable precisely because they have stopped measuring the frontier.
+
 \section{Conclusion}
 
 Physical AI evaluation should become a living system. Static benchmarks are necessary but insufficient: they saturate, drift, and fail silently as world models and robot policies improve. We proposed \system, a self-evolving architecture that jointly evaluates world models and robot policies, mines failures across simulation and reality, generates new embodied tasks, calibrates critic ensembles, and updates benchmarks as capabilities change.
 
 The central metric is predictive validity: whether evaluation results forecast real-world robot behavior and reveal the next frontier of failures. The central infrastructure is evaluation memory: a persistent record of tasks, rollouts, predictions, judgments, failures, explanations, and sim-real disagreements. The central research agenda is to transform evaluation from a static leaderboard into a closed-loop scientific instrument for Physical AI.
+
+The immediate call to action is practical. Benchmark builders should publish provenance and promotion criteria, not only task lists. Robotics labs should report where simulated and world-model evaluations predict real outcomes, and where they fail. Model builders should treat failure traces as reusable evaluation assets. Safety teams should convert deployment incidents into calibrated regression tests. If Physical AI is to leave controlled demonstrations and enter open-ended environments, its evaluation infrastructure must evolve at least as quickly as the models it measures.
 
 \balance
 \bibliographystyle{ACM-Reference-Format}
