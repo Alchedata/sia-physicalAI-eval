@@ -22,6 +22,8 @@
 \usepackage{pifont}
 \usepackage{amsmath}
 \usepackage{amsfonts}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
 
 \newcommand{\system}{SEPA-Eval\xspace}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
@@ -75,7 +77,37 @@ Static benchmarks fail in at least three ways.
 
 \textbf{Silent failure.} Scores may continue to look meaningful even when they no longer predict real-world outcomes.
 
+The practical symptom is not merely that a leaderboard becomes stale. It is that the evaluation system stops producing useful scientific information. Teams can no longer tell whether a score increase reflects a more capable policy, a better-tuned simulator interface, memorization of common task templates, or exploitation of underspecified success criteria. For Physical AI, this is particularly problematic because deployment failures are often rare combinations of ordinary factors: a slightly reflective object, an instruction with a hidden constraint, a shifted camera, a marginal grasp, and a recovery policy that is never invoked in the benchmark.
+
+Static evaluation also underweights temporal structure. A rollout can be successful until the final contact event, safe until the robot begins recovery, or physically plausible for the first few frames before a world model loses object permanence. Useful evaluation therefore needs to preserve traces, intermediate decisions, counterfactual branches, and failure precursors rather than collapsing behavior into a single final score.
+
 These failure modes are especially dangerous in robotics because embodied failures can be costly, unsafe, and difficult to reproduce. The next generation of evaluation should therefore be adaptive: it should observe failures, generate tests around them, validate those tests, and update the benchmark distribution.
+
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}[
+    font=\scriptsize,
+    node distance=0.8cm,
+    box/.style={draw, rounded corners=2pt, align=center, minimum width=2.35cm, minimum height=0.85cm, fill=gray!8},
+    warn/.style={draw, rounded corners=2pt, align=center, minimum width=2.35cm, minimum height=0.85cm, fill=red!7},
+    arrow/.style={-{Stealth[length=2.2mm]}, thick}
+  ]
+    \node[box] (fixed) {Fixed task\\distribution};
+    \node[box, right=of fixed] (score) {Aggregate\\score};
+    \node[warn, below=of fixed] (sat) {Saturation\\or gaming};
+    \node[warn, below=of score] (drift) {Deployment\\drift};
+    \node[box, below right=0.35cm and -0.2cm of sat] (living) {Adaptive tests\\with trace memory};
+    \draw[arrow] (fixed) -- (score);
+    \draw[arrow] (fixed) -- (sat);
+    \draw[arrow] (score) -- (drift);
+    \draw[arrow] (sat) -- (living);
+    \draw[arrow] (drift) -- (living);
+    \draw[arrow] (living.west) .. controls +(-1.2,0.55) and +(-0.7,-0.55) .. (fixed.west);
+  \end{tikzpicture}
+  \caption{Static benchmarks compress behavior into scores, while living evaluation routes saturation, metric gaming, and deployment drift back into new tests.}
+  \Description{A flow diagram showing a fixed task distribution leading to aggregate scores, saturation or gaming, and deployment drift. These feed into adaptive tests with trace memory, which loop back to update the task distribution.}
+  \label{fig:static-failure}
+\end{figure}
 
 \section{Related Work and Resource Landscape}
 
@@ -103,16 +135,21 @@ Figure~\ref{fig:architecture} summarizes the proposed architecture. The system c
   \centering
   \includegraphics[width=0.98\textwidth]{figures/system_architecture.png}
   \caption{Self-evolving agent for Physical AI evaluation. The architecture treats evaluation as a closed-loop system that co-evolves tasks, world models, robot policies, critic ensembles, simulators, real-world rollouts, and evaluation protocols. The central evaluation memory stores tasks, rollouts, predictions, plans, critic judgments, failures, metrics, and human feedback.}
+  \Description{System architecture diagram centered on evaluation memory. Subject models, task evolution, world-model evaluation, robot evaluation, critic ensembles, sim-real calibration, and reporting exchange data through the memory.}
   \label{fig:architecture}
 \end{figure*}
 
 The design principle is that evaluation outputs are not the end of the process. They feed back into the next generation of tasks, critics, metrics, and model-improvement signals. The evaluator is itself an agent: it observes behavior, forms hypotheses about weaknesses, designs experiments, runs them across world models and robots, and updates the evaluation suite.
+
+The architecture is intentionally model-agnostic. A subject model can be a closed-source VLA policy, an open robot foundation model, a learned simulator, a video world model, or a conventional controller wrapped in a planning stack. What matters is that each run produces enough evidence for comparison: initial scene state, instruction, action trace, predicted future, observed future, success labels, critic scores, uncertainty, and provenance. This makes the evaluator a common measurement layer across otherwise heterogeneous robotics stacks.
 
 \section{Subject Models Under Evaluation}
 
 \subsection{World models}
 
 World models include video prediction models, action-conditioned video models, object-centric dynamics models, neural simulators, learned physical predictors, foundation world models, and hybrid simulator-neural models. They should be evaluated both as generative models and as functional components in the robotics stack.
+
+In a self-evolving setting, world models are not only evaluated after training. They also participate in evaluation generation. A world model can propose likely failure futures, create counterfactual continuations, identify physically ambiguous states, and estimate whether an expensive real-world rollout is worth running. The evaluator must therefore track two roles separately: the world model as a \emph{subject} being measured and the world model as a \emph{tool} used to generate or filter test cases. Mixing these roles without provenance can create circular evaluation, where a model is rewarded for satisfying assumptions that it helped create.
 
 A world model used for robotics should satisfy five forms of validity:
 
@@ -126,7 +163,9 @@ A world model used for robotics should satisfy five forms of validity:
 
 \subsection{VLA and robot policies}
 
-Robot policies include VLA policies, diffusion policies, flow-matching action policies, hierarchical planners and controllers, multi-embodiment policies, mobile manipulation policies, and humanoid policies. The evaluation system should treat policies not only as black-box success-rate generators, but as behavioral systems with traces, decisions, recoveries, and failure modes.
+Robot policies include VLA systems, diffusion or flow-based action policies, hierarchical planners, cross-embodiment controllers, mobile manipulation policies, and humanoid policies. The evaluation system should treat policies not only as black-box success-rate generators, but as behavioral systems with traces, decisions, recoveries, and failure modes.
+
+For each policy rollout, the evaluator should record the observation stream, language context, intermediate plans if available, action commands, controller state, safety overrides, force or contact events, human interventions, and recovery attempts. These traces make it possible to distinguish a policy that succeeds robustly from one that reaches the final state through unsafe or brittle behavior. They also allow failure reuse: a failed rollout can become a seed for new world-model prompts, simulator variants, critic calibration examples, and real-world regression tests.
 
 \section{Task and Scenario Evolution}
 
@@ -136,13 +175,19 @@ The task evolution module generates new evaluation cases from multiple sources.
 
 The system begins from existing benchmarks, task suites, and real-world deployment scenarios. These provide initial coverage but should not be treated as sufficient.
 
+Seed tasks should be stored with explicit metadata: task intent, required objects, physical skills, language phenomena, safety constraints, embodiment assumptions, simulator assets, and expected success predicates. This metadata lets the evaluator generate targeted variants rather than random noise. For example, a seed task involving pouring can be expanded along container geometry, liquid level, viscosity, grip pose, occlusion, and spillage tolerance.
+
 \subsection{Failure trace mining}
 
 Every failed rollout is a source of new tests. The agent extracts the attempted goal, physical context, action preceding failure, whether the model perceived the failure, whether recovery was attempted, and whether the cause was perception, planning, control, physics, language grounding, or embodiment mismatch.
 
+Failure mining should preserve the smallest reproducible slice of the rollout. If a twenty-step task fails because the robot nudges a bowl while reaching for a spoon, the benchmark candidate should include both the full long-horizon task and a distilled micro-scenario around the reach, occlusion, and contact event. The long task tests planning and recovery; the micro-scenario tests the local physical competence that caused the failure.
+
 \subsection{Counterfactual generation}
 
 The agent generates counterfactual variants: same task with different object pose; same instruction with distractors; same scene with altered lighting; same manipulation with changed mass or friction; same goal with a different tool; same success case with added human interruption.
+
+Counterfactuals are most useful when they isolate causal factors. A good mutation changes one hypothesis at a time: pose while preserving instruction, language while preserving scene, friction while preserving geometry, or embodiment while preserving goal. Bundled perturbations are still valuable for stress testing, but they are harder to attribute. The evaluator should therefore maintain paired tests that reveal whether a model is sensitive to the intended physical or semantic change.
 
 \subsection{Adversarial physical perturbation}
 
@@ -152,17 +197,48 @@ The system searches for minimal physical changes that cause failure, such as sma
 
 When models begin to solve a task family, the system expands difficulty: longer horizon, more objects, more distractors, less observability, stricter safety constraints, more ambiguous instructions, higher physical precision, and more recovery requirements.
 
+\begin{figure*}[t]
+  \centering
+  \begin{tikzpicture}[
+    font=\scriptsize,
+    stage/.style={draw, rounded corners=2pt, align=center, minimum width=2.45cm, minimum height=1.05cm, fill=blue!5},
+    gate/.style={draw, diamond, aspect=2.1, align=center, inner sep=1.2pt, fill=green!6},
+    arrow/.style={-{Stealth[length=2.3mm]}, thick},
+    node distance=0.55cm
+  ]
+    \node[stage] (trace) {Failure trace\\or saturated task};
+    \node[stage, right=of trace] (attrib) {Attribution\\physics, language,\\control, safety};
+    \node[stage, right=of attrib] (mutate) {Mutation operators\\pose, material,\\horizon, distractors};
+    \node[gate, right=0.85cm of mutate] (valid) {Valid?};
+    \node[stage, right=0.85cm of valid] (promote) {Promoted test\\with provenance};
+    \node[stage, below=0.7cm of valid] (reject) {Repair, archive,\\or discard};
+    \draw[arrow] (trace) -- (attrib);
+    \draw[arrow] (attrib) -- (mutate);
+    \draw[arrow] (mutate) -- (valid);
+    \draw[arrow] (valid) -- node[above] {yes} (promote);
+    \draw[arrow] (valid) -- node[right] {no} (reject);
+    \draw[arrow] (reject.west) .. controls +(-1.0,0) and +(0,-0.75) .. (mutate.south);
+  \end{tikzpicture}
+  \caption{Trace-to-benchmark distillation. The evaluator converts failures and saturated tasks into attributed mutations, validates them, and promotes only reproducible, meaningful, non-redundant tests.}
+  \Description{A pipeline from failure traces or saturated tasks to attribution, mutation operators, validation, and promoted tests. Failed validation routes candidates to repair, archive, or discard before returning to mutation.}
+  \label{fig:task-evolution}
+\end{figure*}
+
 \section{World-Model Evaluation}
 
-World-model evaluation should combine perceptual, physical, causal, and functional metrics.
+This section combines perceptual, physical, causal, and functional metrics for world-model evaluation.
 
 \subsection{Perceptual and temporal quality}
 
 Perceptual metrics ask whether the generated future looks plausible. They include visual fidelity, temporal coherence, frame consistency, object appearance stability, scene consistency, and camera motion realism. These metrics are useful but insufficient.
 
+The evaluator should prefer diagnostics that expose temporally localized defects. Instead of only reporting a sequence-level realism score, it should identify when an object disappears, when contact begins, when a support relation changes, and when the generated future diverges from an observed or simulator rollout. These event-level annotations make perceptual metrics useful for robotics debugging.
+
 \subsection{Physical consistency}
 
 Physical consistency tests whether the model obeys action-relevant constraints: object permanence, collision consistency, contact stability, gravity and support, rigid-body motion, deformable-object behavior, liquid behavior, friction and slip, containment, causality, and reversibility.
+
+Physical consistency should be measured at multiple granularities. Some tests are local, such as whether a grasped object moves with the gripper. Others are relational, such as whether a cup remains supported by a tray after placement. Still others are counterfactual, such as whether increased friction reduces slip in otherwise identical scenes. A strong world model should behave consistently across all three levels.
 
 \subsection{3D and spatial consistency}
 
@@ -176,6 +252,8 @@ A world model used for robotics must follow action conditions. It should not mer
 
 The most important question is whether the world model helps robotics. The system should evaluate whether the world model can generate synthetic data that improves policies, rank policies similarly to real-world evaluation, support action planning, detect unsafe futures, identify failure causes, improve recovery policies, and reduce real-world trial cost.
 
+This requires interventional evaluation rather than passive scoring. The evaluator should compare policy training with and without synthetic data, planning with and without world-model rollouts, and safety filtering with and without predicted futures. A world model that produces visually appealing videos but does not improve any downstream decision should receive a low embodied-utility score.
+
 \section{VLA and Robot Policy Evaluation}
 
 Robot policy evaluation should go beyond task success.
@@ -184,9 +262,11 @@ Robot policy evaluation should go beyond task success.
 
 Success should be measured at multiple levels: binary completion, partial progress, time to completion, number of interventions, action efficiency, energy or force efficiency, collateral damage, and final-state quality.
 
+The system should also distinguish \emph{clean success} from \emph{fragile success}. Clean success satisfies the task without unnecessary contact, unsafe forces, repeated retries, hidden human assistance, or lucky recoveries. Fragile success reaches the final state but leaves evidence that the policy is near a failure boundary. This distinction is important for regression testing because many deployment incidents begin as fragile successes in evaluation.
+
 \subsection{Robustness and generalization}
 
-The system should test whether success survives distribution shift: object pose changes, object shape changes, material changes, lighting changes, camera shifts, clutter, distractors, language paraphrases, unseen object categories, unseen scenes, and different embodiments.
+The system should test whether success survives distribution shift: object pose changes, object shape changes, material changes, lighting changes, camera shifts, clutter, distractors, paraphrases, unseen object categories, unseen scenes, and different embodiments.
 
 \subsection{Physical reasoning}
 
@@ -199,6 +279,8 @@ The policy should bind language to objects, attributes, relations, constraints, 
 \subsection{Recovery and adaptation}
 
 Deployed robots must handle failure. The evaluation should measure failure detection, self-correction, retry strategy, replanning, asking for help, safe fallback, and graceful degradation.
+
+Recovery metrics should be grounded in the failure moment. The evaluator should ask whether the robot noticed the failure, whether its diagnosis was correct, whether the next action reduced risk, and whether the recovery preserved task intent. A policy that retries the same bad grasp five times is different from one that changes viewpoint, selects a safer grasp, or asks for clarification.
 
 \subsection{Safety and risk}
 
@@ -220,6 +302,10 @@ No single metric can judge Physical AI. \system uses a critic ensemble:
 
 The critic ensemble should produce not only scores, but also explanations and uncertainty estimates.
 
+Critics should be calibrated against one another and against outcome data. When a semantic critic says the task is complete but a physics critic reports unstable contact, the evaluator should preserve the disagreement instead of averaging it away. Such disagreement often marks the most useful cases: visually successful but unsafe rollouts, plausible world-model videos with impossible contacts, or policies that satisfy a literal instruction while violating an implicit safety constraint.
+
+The ensemble should also maintain critic-specific reliability estimates. A VLM judge may be strong at object identity but weak at force, a physics engine may be strong at rigid contact but weak at deformable material, and a human expert may be accurate but expensive and inconsistent under ambiguous instructions. Reliability estimates let the evaluator route high-stakes cases to the right judges and avoid over-trusting a single scoring channel.
+
 \section{Sim-Real Calibration}
 
 The sim-real calibration loop compares outcomes across world-model predictions, simulator rollouts, and real robot executions. The most valuable cases are disagreements:
@@ -234,11 +320,42 @@ The sim-real calibration loop compares outcomes across world-model predictions, 
 
 These disagreements define the frontier of evaluation uncertainty. The agent should mine them and turn them into new tests. Calibration should measure rank correlation between simulated and real policy performance, task-level success correlation, failure-mode overlap, trajectory similarity, contact-event similarity, distribution-shift sensitivity, confidence calibration, and real-world predictive validity.
 
+\begin{figure}[t]
+  \centering
+  \begin{tikzpicture}[
+    font=\scriptsize,
+    node distance=1.15cm,
+    box/.style={draw, rounded corners=2pt, align=center, minimum width=2.0cm, minimum height=0.85cm, fill=gray!8},
+    center/.style={draw, circle, align=center, minimum size=1.45cm, fill=yellow!12},
+    arrow/.style={-{Stealth[length=2.2mm]}, thick}
+  ]
+    \node[box] (wm) {World model\\prediction};
+    \node[box, below left=of wm] (sim) {Simulator\\rollout};
+    \node[box, below right=of wm] (real) {Real robot\\execution};
+    \node[center, below=0.35cm of wm] (gap) {Disagreement\\mining};
+    \draw[arrow] (wm) -- (gap);
+    \draw[arrow] (sim) -- (gap);
+    \draw[arrow] (real) -- (gap);
+    \draw[arrow] (gap) -- (wm);
+    \draw[arrow] (gap) -- (sim);
+    \draw[arrow] (gap) -- (real);
+  \end{tikzpicture}
+  \caption{Sim-real calibration compares predictions, simulation, and real executions. Disagreements become calibration data, simulator-improvement targets, and new benchmark cases.}
+  \Description{A triangular diagram with world-model prediction, simulator rollout, and real robot execution feeding into a central disagreement-mining node. The central node feeds improvements back to all three sources.}
+  \label{fig:sim-real}
+\end{figure}
+
+Operationally, calibration should be stratified by task family, object class, embodiment, and physical phenomenon. A simulator may be predictive for rigid pick-and-place but unreliable for cables or liquids; a world model may rank policies well in uncluttered tabletop scenes but fail under reflective surfaces. The evaluator should report these validity regions explicitly so teams know where simulated results can be trusted and where real-world sampling remains necessary.
+
 \section{Evaluation Memory}
 
 Evaluation memory stores task definitions, scene configurations, object metadata, robot embodiments, policy versions, world-model versions, simulator settings, rollouts, videos, trajectories, actions, rewards, success labels, critic judgments, human feedback, failure explanations, sim-real disagreements, benchmark saturation history, and metric drift.
 
 This memory lets the system answer: which tasks are saturated; which tasks still discriminate frontier models; which failures recur across model families; which simulator results correlate with reality; which world-model metrics predict downstream utility; and which generated tests should be promoted into the official benchmark.
+
+The memory should be organized around immutable evaluation records. Each record links a task specification, environment configuration, model version, run configuration, outputs, judgments, and derived annotations. New critics or success predicates can be run later, but the original evidence should remain unchanged. This allows retrospective analysis when a benchmark saturates, when a critic is found to be biased, or when a real-world incident reveals that an old failure pattern was underweighted.
+
+A useful memory also needs indexing for retrieval. Engineers should be able to query for all failures involving transparent containers, all tasks where simulation overpredicted success, all policies that improved average success while increasing unsafe contact, or all world-model predictions that were visually plausible but physically invalid. These retrieval capabilities turn evaluation history into a debugging and research asset rather than a passive log archive.
 
 \section{The Self-Evolution Loop}
 
@@ -253,6 +370,8 @@ This memory lets the system answer: which tasks are saturated; which tasks still
   \item \textbf{Monitor obsolescence}: track saturation, discriminative power, predictive validity, and metric gaming.
   \item \textbf{Report}: summarize capability frontiers, recurring failures, robustness cliffs, sim-real gaps, safety risks, and recommended next tests.
 \end{enumerate}
+
+The loop should run at multiple cadences. Fast simulator and world-model checks can run continuously on every model version. More expensive real-robot calibration can run on a budgeted schedule or be triggered by high-uncertainty disagreements. Human review should be reserved for ambiguous, safety-relevant, or benchmark-promotion cases. This tiered cadence makes the system practical: most tests are cheap, but the evaluator still maintains a real-world anchor.
 
 \section{Metrics}
 

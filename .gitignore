@@ -1,0 +1,79 @@
+## LaTeX gitignore
+# Source: https://github.com/github/gitignore/blob/main/TeX.gitignore
+latex/rendered_pages/*
+
+## Core latex/pdflatex auxiliary files:
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+.*.lb
+
+## Intermediate documents:
+*.dvi
+*.xdv
+*-converted-to.*
+# these rules might exclude image files for very long file names
+*.vol
+*.idx
+*.ilg
+*.ind
+*.ist
+*.glg
+*.glo
+*.gls
+*.grp
+*.hd
+*.loi
+*.nlg
+*.nlo
+*.nls
+*.o
+*.pyg
+*.slg
+*.slo
+*.sls
+*.unw
+
+## Bibliography auxiliary files (bibtex/biblatex/biber):
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+
+## Synctex files (for editing/previewing):
+*.synctex
+*.synctex(busy)
+*.synctex.gz
+*.synctex.gz(busy)
+
+## PDF/PS output:
+*.ps
+*.dvi
+
+## Modern LaTeX (XeLaTeX/LuaLaTeX)
+*.xdv
+
+## Text editor auxiliary files:
+*.bak
+*.sav
+*.tmp
+
+## Tools and build systems:
+*.fdb_latexmk
+*.latexmkrc
+*.makefile
+*.tdo
+*.xdy
+
+## macOS specific:
+.DS_Store
