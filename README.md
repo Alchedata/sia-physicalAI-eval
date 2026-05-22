@@ -1,4 +1,4 @@
-# SEPA-Eval: Self-evolving Evaluation System for Physical AI Mdoel
+# SEPA-Eval: Self-evolving Evaluation System for Physical AI 
 
 SEPA-Eval is a self-evolving evaluation system for vision-language-action (VLA) models built on top of AlphaBrain. Instead of treating a benchmark as fixed, SEPA-Eval records failures, clusters them, generates harder task variants, validates those candidates through promotion gates, and feeds successful tasks back into the benchmark distribution.
 
