@@ -1,0 +1,40 @@
+# PaliGemmaOFT framework config (MLP/DiT action head, L1 regression)
+# PaliGemma 3B (SigLIP + Gemma 2B) — mirrors LlamaOFT/QwenOFT architecture
+framework:
+  name: PaliGemmaOFT
+  paligemma:
+    base_vlm: ${PRETRAINED_MODELS_DIR}/paligemma-3b-pt-224
+    attn_implementation: flash_attention_2
+  # qwenvl routing (for get_vlm_model compatibility)
+  qwenvl:
+    base_vlm: "paligemma-3b"
+  dino:
+    dino_backbone: dinov2_vits14
+  action_model:
+    action_model_type: DiT-B
+    action_hidden_dim: 2048  # PaliGemma Gemma hidden size
+    hidden_size: 2048
+    add_pos_embed: true
+    max_seq_len: 1024
+    action_dim: 7
+    state_dim: 7
+    future_action_window_size: 7
+    action_horizon: 8
+    past_action_window_size: 0
+    repeated_diffusion_steps: 8
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0
+    noise_s: 0.999
+    num_timestep_buckets: 1000
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    diffusion_model_cfg:
+      cross_attention_dim: 2048
+      dropout: 0.2
+      final_dropout: true
+      interleave_self_attention: true
+      norm_type: "ada_norm"
+      num_layers: 16
+      output_dim: 2560
+      positional_embeddings: null
+  reduce_in_full_precision: true

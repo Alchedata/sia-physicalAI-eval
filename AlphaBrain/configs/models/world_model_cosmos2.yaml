@@ -1,0 +1,55 @@
+# World Model Cosmos Predict2 + QwenGR00T (FlowMatching DiT action head)
+framework:
+  name: QwenGR00T
+  world_model:
+    backend: cosmos2.5
+    checkpoint_path: data/pretrained_models/Cosmos-Predict2-2B-Video2World
+    hidden_size: 1024
+    freeze_encoder: false
+    text_encoder_type: t5-small
+    text_encoder_path: data/pretrained_models/t5-small
+    text_hidden_size: 1024
+    fusion_type: cross_attention
+    num_fusion_layers: 2
+    image_size: 224
+    pretrained_dir: data/pretrained_models/Cosmos-Predict2-2B-Video2World
+    reason1_path: data/pretrained_models/Cosmos-Reason1-7B
+    use_intermediate_features: true
+    intermediate_layer_ids:
+    - 7
+    - 14
+    - 21
+    - 27
+    # Single-layer action-feature extraction (DiT4DiT ablation: mid > last).
+    feature_layer_id: 18
+    use_video_loss: true
+    video_loss_weight: 1.0
+    # Diffusion sigma schedule (matches Cosmos scheduler_config.json).
+    sigma_min: 0.002
+    sigma_max: 80.0
+    sigma_data: 1.0
+    sigma_conditional: 0.0001
+  qwenvl:
+    base_vlm: world_model-cosmos2.5
+  action_model:
+    action_model_type: DiT-B
+    action_hidden_dim: 1024
+    hidden_size: 1024
+    add_pos_embed: true
+    max_seq_len: 1024
+    action_dim: 7
+    state_dim: 7
+    future_action_window_size: 7
+    action_horizon: 8
+    past_action_window_size: 0
+    repeated_diffusion_steps: 8
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0
+    noise_s: 0.999
+    num_timestep_buckets: 1000
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    diffusion_model_cfg:
+      cross_attention_dim: 2048
+      dropout: 0.2
+      output_dim: 1024

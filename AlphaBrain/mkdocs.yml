@@ -1,0 +1,132 @@
+docs_dir: docs
+site_dir: site
+
+exclude_docs: |
+  dev_notes/
+
+site_name: AlphaBrain Documentation
+site_description: A Modular Open-Source Framework for Embodied Intelligence Research.
+site_url: https://alphabraingroup.github.io/AlphaBrain/
+repo_url: https://github.com/AlphaBrainGroup/AlphaBrain
+repo_name: AlphaBrainGroup/AlphaBrain
+edit_uri: edit/dev/docs/
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - navigation.instant
+    - search.highlight
+    - search.share
+    - search.suggest
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - toc.follow
+    - announce.dismiss
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/robot-outline
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: ["."]
+          options:
+            docstring_style: google
+            docstring_section_style: table
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: true
+            show_bases: true
+            show_signature_annotations: true
+            separate_signature: true
+            members_order: source
+            heading_level: 2
+            merge_init_into_class: true
+            filters:
+              - "!^_"
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+
+nav:
+  - Home: index.md
+  - Quickstart:
+    - quickstart/index.md
+    - Installation: quickstart/installation.md
+    - Baseline VLA: quickstart/baselineVLA.md
+    - NeuroVLA: quickstart/neurovla.md
+    - RL-Token: quickstart/rl_token.md
+    - World Model: quickstart/world_model.md
+    - Continual Learning: quickstart/continual_learning.md
+  - API Reference:
+    - api/index.md
+    - Dataloader: api/dataloader.md
+    - Model:
+      - Framework: api/model_framework.md
+      - Modules: api/model_modules.md
+    - Training:
+      - General Training: api/training.md
+      - Continual Learning: api/training_continual_learning.md
+      - Reinforcement Learning: api/training_reinforcement_learning.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AlphaBrainGroup/AlphaBrain
+  version:
+    provider: mike
+
+copyright: Copyright &copy; 2025 AlphaBrain Team

@@ -1,0 +1,37 @@
+rlt:
+  # Encoder-Decoder (information bottleneck)
+  bottleneck_dim: 256            # D << H=2048, forces compression
+  encoder_layers: 2
+  encoder_heads: 4
+
+  # Actor (action editing)
+  actor_hidden_dim: 512
+  ref_action_dropout: 0.5        # paper: 50% zero VLA ref action during training
+  fixed_std: 0.3                 # paper: small fixed std for Gaussian policy
+
+  # Critic
+  critic_hidden_dim: 512
+
+  # Phase 1: Encoder pretraining
+  pretrain_episodes: 100         # rollout episodes for pretraining data
+  pretrain_epochs: 50
+  lr_encoder_pretrain: 1.0e-4
+
+  # Phase 2: RL training
+  lr_actor: 3.0e-4
+  lr_critic: 3.0e-4
+  lr_encoder_finetune: 1.0e-5   # 0 to freeze encoder during RL
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_eps: 0.2
+  vf_coef: 0.5
+  recon_loss_coef: 0.1           # reconstruction loss regularizer during RL
+  ppo_epochs: 10                 # small network allows more PPO epochs
+  max_grad_norm: 1.0
+
+  # Rollout
+  suite: libero_goal
+  G: 8                           # episodes per group
+  num_envs: 4
+  max_iter: 500
+  save_interval: 50

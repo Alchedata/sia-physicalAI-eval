@@ -1,0 +1,175 @@
+"""
+libero_trace_hook.py — BenchmarkAdapter wrapping a LIBERO eval environment.
+
+The actual LIBERO library is not required at import time; LiberoHook accepts
+any duck-typed object that exposes the LIBERO env interface.
+"""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable
+
+from sepa_eval.memory.schema import (
+    EpisodeTrace,
+    SceneConfig,
+    TraceIdentity,
+)
+from sepa_eval.hooks.base import TraceHook
+
+if TYPE_CHECKING:
+    from sepa_eval.memory import EvalMemory
+
+
+# ---------------------------------------------------------------------------
+# LiberoHook — BenchmarkAdapter
+# ---------------------------------------------------------------------------
+
+class LiberoHook:
+    """
+    BenchmarkAdapter wrapping a LIBERO eval environment.
+
+    Parameters
+    ----------
+    env:
+        A duck-typed LIBERO env object.  Required interface::
+
+            env.reset() -> obs_dict
+            env.step(action) -> (obs_dict, reward, done, info)
+            env.task_id     -> str
+            env.get_obs()   -> obs_dict   (optional; used as fallback)
+
+    task_id:
+        Stable string identifier for the task being evaluated.  If the
+        env exposes ``env.task_id`` directly you may pass the same value;
+        having an explicit parameter allows override without mutating the
+        env object.
+    scene_config:
+        Optional dict with simulator / scene initialisation parameters.
+        When None, an empty dict is stored.
+    """
+
+    PROTOCOL_VERSION: str = "1.0"
+
+    def __init__(
+        self,
+        env: Any,
+        task_id: str,
+        scene_config: dict | None = None,
+    ) -> None:
+        self._env = env
+        self._task_id = task_id
+        self._scene_config: dict = scene_config if scene_config is not None else {}
+
+    # ------------------------------------------------------------------
+    # BenchmarkAdapter protocol
+    # ------------------------------------------------------------------
+
+    def reset(self) -> dict:
+        """Reset the LIBERO env and return the initial observation dict."""
+        obs = self._env.reset()
+        # Some LIBERO env implementations return None from reset() and
+        # expose get_obs() separately.
+        if obs is None and hasattr(self._env, "get_obs"):
+            obs = self._env.get_obs()
+        return obs if isinstance(obs, dict) else {"obs": obs}
+
+    def step(self, action: Any) -> tuple:
+        """
+        Step the LIBERO env.
+
+        Returns
+        -------
+        (obs: dict, done: bool, info: dict)
+
+        LIBERO envs return (obs, reward, done, info); we drop the reward
+        scalar to match the BenchmarkAdapter protocol.
+        """
+        result = self._env.step(action)
+
+        # Handle both (obs, reward, done, info) and (obs, done, info).
+        if len(result) == 4:
+            obs, _reward, done, info = result
+        elif len(result) == 3:
+            obs, done, info = result
+        else:
+            raise ValueError(
+                f"Unexpected step() return length {len(result)} from LIBERO env."
+            )
+
+        if not isinstance(obs, dict):
+            obs = {"obs": obs}
+        if not isinstance(info, dict):
+            info = {}
+        return obs, bool(done), info
+
+    def get_task_id(self) -> str:
+        return self._task_id
+
+    def get_scene_config(self) -> dict:
+        return dict(self._scene_config)
+
+
+# ---------------------------------------------------------------------------
+# Helper: run one full LIBERO episode with trace collection
+# ---------------------------------------------------------------------------
+
+def run_libero_episode_with_trace(
+    env: Any,
+    policy_fn: Callable[[dict], Any],
+    memory: "EvalMemory",
+    identity: TraceIdentity,
+    store_obs: bool = False,
+) -> EpisodeTrace:
+    """
+    Run one LIBERO episode end-to-end with trace collection.
+
+    Parameters
+    ----------
+    env:
+        A duck-typed LIBERO env (same contract as LiberoHook.__init__).
+    policy_fn:
+        Callable that maps an observation dict to an action.  Signature::
+
+            action = policy_fn(obs: dict) -> Any
+
+    memory:
+        An EvalMemory instance used to persist the finished trace.
+    identity:
+        TraceIdentity describing this eval run / trace.
+    store_obs:
+        Passed through to TraceHook.  See TraceHook docstring.
+
+    Returns
+    -------
+    EpisodeTrace
+        The completed trace (already persisted via memory.record_trace()).
+    """
+    adapter = LiberoHook(
+        env=env,
+        task_id=identity.task_id,
+    )
+
+    # Build a minimal SceneConfig.  Callers wanting a full state snapshot
+    # should pass a pre-built SceneConfig via identity; here we collect
+    # what we can from the adapter.
+    scene_cfg_dict = adapter.get_scene_config()
+    scene = SceneConfig(
+        scene_config=scene_cfg_dict,
+        init_state=b"",   # simulator snapshot not available at this layer
+        replay_mode="reseed",
+    )
+
+    with TraceHook(memory=memory, identity=identity, scene=scene, store_obs=store_obs) as hook:
+        obs = adapter.reset()
+        done = False
+        info: dict = {}
+
+        while not done:
+            action = policy_fn(obs)
+            obs, done, info = adapter.step(action)
+            hook.on_step(obs, action)
+
+        # Determine success from info dict (LIBERO convention).
+        success = bool(info.get("success", False))
+        trace = hook.on_episode_end(success=success)
+
+    return trace

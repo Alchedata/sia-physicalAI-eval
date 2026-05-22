@@ -1,0 +1,26 @@
+# 自定义数据集配置模板
+# 复制此文件并修改为你的数据集参数
+# 参考其他数据集配置文件了解各字段含义
+
+framework:
+  action_model:
+    action_dim: 7          # 机器人动作维度
+    state_dim: 7           # 机器人状态维度
+    future_action_window_size: 7   # 预测未来动作窗口
+    action_horizon: 8      # 动作序列长度
+
+datasets:
+  vla_data:
+    dataset_py: lerobot_datasets
+    data_root_dir: playground/Datasets/YOUR_DATASET
+    data_mix: your_data_mix
+    action_type: delta_qpos        # delta_qpos | abs_qpos | delta_ee
+    sequential_step_sampling: false
+    CoT_prompt: "Your task is {instruction}. To identify the key objects for your task. Locate their bounding boxes in [x1,y1,x2,y2] format."
+    CoT_answer: bbox
+    default_image_resolution: [3, 224, 224]
+    per_device_batch_size: 16
+    load_all_data_for_training: true
+    obs: ["image_0"]
+    video_backend: torchvision_av
+    include_state: true

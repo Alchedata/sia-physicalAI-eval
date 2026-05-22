@@ -1,0 +1,333 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{16}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{} and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showURL}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showURL #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[Black et~al\mbox{.}(2024)]%
+        {black2024pi0}
+\bibfield{author}{\bibinfo{person}{Kevin Black}, \bibinfo{person}{Noah Brown},
+  \bibinfo{person}{Danny Driess}, \bibinfo{person}{Adnan Esmail},
+  \bibinfo{person}{Michael Equi}, \bibinfo{person}{Chelsea Finn},
+  \bibinfo{person}{Niccolo Fusai}, \bibinfo{person}{Lachy Groom},
+  \bibinfo{person}{Karol Hausman}, \bibinfo{person}{Brian Ichter},
+  \bibinfo{person}{Szymon Jakubczak}, \bibinfo{person}{Tim Jones},
+  \bibinfo{person}{Liyiming Ke}, \bibinfo{person}{Sergey Levine},
+  \bibinfo{person}{Adrian Li-Bell}, \bibinfo{person}{Mohith Mothukuri},
+  \bibinfo{person}{Suraj Nair}, \bibinfo{person}{Karl Pertsch},
+  \bibinfo{person}{Lucy~Xiaoyang Shi}, \bibinfo{person}{James Tanner},
+  \bibinfo{person}{Quan Vuong}, \bibinfo{person}{Anna Walling},
+  \bibinfo{person}{Haohuan Wang}, {and} \bibinfo{person}{Ury Zhilinsky}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{$\pi_0$: A Vision-Language-Action Flow Model for
+  General Robot Control}.
+\newblock
+\showeprint[arxiv]{2410.24164}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2410.24164}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Brohan et~al\mbox{.}(2023)]%
+        {brohan2023rt2}
+\bibfield{author}{\bibinfo{person}{Anthony Brohan}, \bibinfo{person}{Noah
+  Brown}, \bibinfo{person}{Justice Carbajal}, \bibinfo{person}{Yevgen
+  Chebotar}, \bibinfo{person}{Xi Chen}, \bibinfo{person}{Krzysztof
+  Choromanski}, \bibinfo{person}{Tianli Ding}, \bibinfo{person}{Danny Driess},
+  \bibinfo{person}{Avinava Dubey}, \bibinfo{person}{Chelsea Finn},
+  \bibinfo{person}{Pete Florence}, \bibinfo{person}{Chuyuan Fu},
+  \bibinfo{person}{Montse~Gonzalez Arenas}, \bibinfo{person}{Keerthana
+  Gopalakrishnan}, \bibinfo{person}{Kehang Han}, \bibinfo{person}{Karol
+  Hausman}, \bibinfo{person}{Alexander Herzog}, \bibinfo{person}{Jasmine Hsu},
+  \bibinfo{person}{Brian Ichter}, \bibinfo{person}{Alex Irpan},
+  \bibinfo{person}{Nikhil Joshi}, \bibinfo{person}{Ryan Julian},
+  \bibinfo{person}{Dmitry Kalashnikov}, \bibinfo{person}{Yuheng Kuang},
+  \bibinfo{person}{Isabel Leal}, \bibinfo{person}{Lisa Lee},
+  \bibinfo{person}{Tsang-Wei~Edward Lee}, \bibinfo{person}{Sergey Levine},
+  \bibinfo{person}{Yao Lu}, \bibinfo{person}{Henryk Michalewski},
+  \bibinfo{person}{Igor Mordatch}, \bibinfo{person}{Karl Pertsch},
+  \bibinfo{person}{Kanishka Rao}, \bibinfo{person}{Krista Reymann},
+  \bibinfo{person}{Michael Ryoo}, \bibinfo{person}{Grecia Salazar},
+  \bibinfo{person}{Pannag Sanketi}, \bibinfo{person}{Pierre Sermanet},
+  \bibinfo{person}{Jaspiar Singh}, \bibinfo{person}{Anikait Singh},
+  \bibinfo{person}{Radu Soricut}, \bibinfo{person}{Huong Tran},
+  \bibinfo{person}{Vincent Vanhoucke}, \bibinfo{person}{Quan Vuong},
+  \bibinfo{person}{Ayzaan Wahid}, \bibinfo{person}{Stefan Welker},
+  \bibinfo{person}{Paul Wohlhart}, \bibinfo{person}{Jialin Wu},
+  \bibinfo{person}{Fei Xia}, \bibinfo{person}{Ted Xiao}, \bibinfo{person}{Peng
+  Xu}, \bibinfo{person}{Sichun Xu}, \bibinfo{person}{Tianhe Yu}, {and}
+  \bibinfo{person}{Brianna Zitkovich}.} \bibinfo{year}{2023}\natexlab{}.
+\newblock \bibinfo{title}{{RT-2}: Vision-Language-Action Models Transfer Web
+  Knowledge to Robotic Control}.
+\newblock
+\showeprint[arxiv]{2307.15818}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2307.15818}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Jiang et~al\mbox{.}(2026)]%
+        {jiang2026robowm}
+\bibfield{author}{\bibinfo{person}{Feng Jiang}, \bibinfo{person}{Yang Chen},
+  \bibinfo{person}{Kyle Xu}, \bibinfo{person}{Yuchen Liu},
+  \bibinfo{person}{Haifeng Wang}, \bibinfo{person}{Zhenhao Shen},
+  \bibinfo{person}{Jasper Lu}, \bibinfo{person}{Shengze Huang},
+  \bibinfo{person}{Yuanfei Wang}, \bibinfo{person}{Chen Xie}, {and}
+  \bibinfo{person}{Ruihai Wu}.} \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{{RoboWM-Bench}: A Benchmark for Evaluating World
+  Models in Robotic Manipulation}.
+\newblock
+\showeprint[arxiv]{2604.19092}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2604.19092}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Kim et~al\mbox{.}(2024)]%
+        {kim2024openvla}
+\bibfield{author}{\bibinfo{person}{Moo~Jin Kim}, \bibinfo{person}{Karl
+  Pertsch}, \bibinfo{person}{Siddharth Karamcheti}, \bibinfo{person}{Ted Xiao},
+  \bibinfo{person}{Ashwin Balakrishna}, \bibinfo{person}{Suraj Nair},
+  \bibinfo{person}{Rafael Rafailov}, \bibinfo{person}{Ethan Foster},
+  \bibinfo{person}{Grace Lam}, \bibinfo{person}{Pannag Sanketi},
+  \bibinfo{person}{Quan Vuong}, \bibinfo{person}{Thomas Kollar},
+  \bibinfo{person}{Benjamin Burchfiel}, \bibinfo{person}{Russ Tedrake},
+  \bibinfo{person}{Dorsa Sadigh}, \bibinfo{person}{Sergey Levine},
+  \bibinfo{person}{Percy Liang}, {and} \bibinfo{person}{Chelsea Finn}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{{OpenVLA}: An Open-Source Vision-Language-Action
+  Model}.
+\newblock
+\showeprint[arxiv]{2406.09246}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2406.09246}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Li et~al\mbox{.}(2024)]%
+        {li2024behavior1k}
+\bibfield{author}{\bibinfo{person}{Chengshu Li}, \bibinfo{person}{Ruohan
+  Zhang}, \bibinfo{person}{Josiah Wong}, \bibinfo{person}{Cem Gokmen},
+  \bibinfo{person}{Sanjana Srivastava}, \bibinfo{person}{Roberto
+  Mart\'{i}n-Mart\'{i}n}, \bibinfo{person}{Chen Wang}, \bibinfo{person}{Gabrael
+  Levine}, \bibinfo{person}{Wensi Ai}, \bibinfo{person}{Benjamin Martinez},
+  \bibinfo{person}{Hang Yin}, \bibinfo{person}{Michael Lingelbach},
+  \bibinfo{person}{Minjune Hwang}, \bibinfo{person}{Ayano Hiranaka},
+  \bibinfo{person}{Sujay Garlanka}, \bibinfo{person}{Arman Aydin},
+  \bibinfo{person}{Sharon Lee}, \bibinfo{person}{Jiankai Sun},
+  \bibinfo{person}{Mona Anvari}, \bibinfo{person}{Manasi Sharma},
+  \bibinfo{person}{Dhruva Bansal}, \bibinfo{person}{Samuel Hunter},
+  \bibinfo{person}{Kyu-Young Kim}, \bibinfo{person}{Alan Lou},
+  \bibinfo{person}{Caleb~R. Matthews}, \bibinfo{person}{Ivan Villa-Renteria},
+  \bibinfo{person}{Jerry~Huayang Tang}, \bibinfo{person}{Claire Tang},
+  \bibinfo{person}{Fei Xia}, \bibinfo{person}{Yunzhu Li},
+  \bibinfo{person}{Silvio Savarese}, \bibinfo{person}{Hyowon Gweon},
+  \bibinfo{person}{C.~Karen Liu}, \bibinfo{person}{Jiajun Wu}, {and}
+  \bibinfo{person}{Li Fei-Fei}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{{BEHAVIOR-1K}: A Human-Centered, Embodied {AI}
+  Benchmark with 1,000 Everyday Activities and Realistic Simulation}.
+\newblock
+\showeprint[arxiv]{2403.09227}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2403.09227}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Li et~al\mbox{.}(2025a)]%
+        {worldmodelbench2025}
+\bibfield{author}{\bibinfo{person}{Dacheng Li}, \bibinfo{person}{Yunhao Fang},
+  \bibinfo{person}{Yukang Chen}, \bibinfo{person}{Shuo Yang},
+  \bibinfo{person}{Shiyi Cao}, \bibinfo{person}{Justin Wong},
+  \bibinfo{person}{Michael Luo}, \bibinfo{person}{Xiaolong Wang},
+  \bibinfo{person}{Hongxu Yin}, \bibinfo{person}{Joseph~E. Gonzalez},
+  \bibinfo{person}{Ion Stoica}, \bibinfo{person}{Song Han}, {and}
+  \bibinfo{person}{Yao Lu}.} \bibinfo{year}{2025}\natexlab{a}.
+\newblock \bibinfo{title}{{WorldModelBench}: Judging Video Generation Models As
+  World Models}.
+\newblock
+  \bibinfo{howpublished}{\url{https://huggingface.co/papers/2502.20694}}.
+\newblock
+\newblock
+\shownote{Accessed: 2026-05-18}.
+
+
+\bibitem[Li et~al\mbox{.}(2026)]%
+        {dworldeval2026}
+\bibfield{author}{\bibinfo{person}{Yaxuan Li}, \bibinfo{person}{Zhongyi Zhou},
+  \bibinfo{person}{Yefei Chen}, \bibinfo{person}{Yaokai Xue}, {and}
+  \bibinfo{person}{Yichen Zhu}.} \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{{dWorldEval}: Scalable Robotic Policy Evaluation via
+  Discrete Diffusion World Model}.
+\newblock
+\showeprint[arxiv]{2604.22152}
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2604.22152}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Li et~al\mbox{.}(2025b)]%
+        {li2025worldeval}
+\bibfield{author}{\bibinfo{person}{Yaxuan Li}, \bibinfo{person}{Yichen Zhu},
+  \bibinfo{person}{Junjie Wen}, \bibinfo{person}{Chaomin Shen}, {and}
+  \bibinfo{person}{Yi Xu}.} \bibinfo{year}{2025}\natexlab{b}.
+\newblock \bibinfo{title}{{WorldEval}: World Model as Real-World Robot Policies
+  Evaluator}.
+\newblock
+\showeprint[arxiv]{2505.19017}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2505.19017}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Nasiriany et~al\mbox{.}(2024)]%
+        {nasiriany2024robocasa}
+\bibfield{author}{\bibinfo{person}{Soroush Nasiriany}, \bibinfo{person}{Abitha
+  Thankaraj}, \bibinfo{person}{Zhecheng Yuan}, \bibinfo{person}{Abhijeet
+  Gupta}, \bibinfo{person}{Li Fei-Fei}, {and} \bibinfo{person}{C.~Karen Liu}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{{RoboCasa}: Large-Scale Simulation of Everyday Tasks
+  for Generalist Robots}.
+\newblock
+\showeprint[arxiv]{2406.02523}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2406.02523}
+\showURL{%
+\tempurl}
+
+
+\bibitem[{NVIDIA}(2025)]%
+        {nvidia2025groot}
+\bibfield{author}{\bibinfo{person}{{NVIDIA}}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{{NVIDIA} Announces {Isaac GR00T N1}, an Open Humanoid
+  Robot Foundation Model and Simulation Frameworks}.
+\newblock
+  \bibinfo{howpublished}{\url{https://nvidianews.nvidia.com/news/nvidia-isaac-gr00t-n1-open-humanoid-robot-foundation-model-simulation-frameworks}}.
+\newblock
+\newblock
+\shownote{Accessed: 2026-05-18}.
+
+
+\bibitem[{Physion Labs}(2025)]%
+        {physionatlas2025}
+\bibfield{author}{\bibinfo{person}{{Physion Labs}}.}
+  \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Physion Atlas 1.0}.
+\newblock
+  \bibinfo{howpublished}{\url{https://physionlabs.ai/blog/physion-atlas1.0}}.
+\newblock
+\newblock
+\shownote{Accessed: 2026-05-18}.
+
+
+\bibitem[{RoboCasa365 Authors}(2026)]%
+        {robocasa3652026}
+\bibfield{author}{\bibinfo{person}{{RoboCasa365 Authors}}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{{RoboCasa365}: A Large-Scale Simulation Framework for
+  Training and Benchmarking Generalist Robots}.
+\newblock
+\showeprint[arxiv]{2603.04356}~[cs.RO]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2603.04356}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Wang(2025)]%
+        {wang2025evalsbreak}
+\bibfield{author}{\bibinfo{person}{Lun Wang}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Your Evals Will Break}.
+\newblock
+  \bibinfo{howpublished}{\url{https://wanglun1996.github.io/blog/your-evals-will-break.html}}.
+\newblock
+\newblock
+\shownote{Accessed: 2026-05-18}.
+
+
+\bibitem[{WorldArena Team}(2026)]%
+        {worldarena2026}
+\bibfield{author}{\bibinfo{person}{{WorldArena Team}}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{WorldArena: A Unified Benchmark for Evaluating
+  Perception and Functional Utility of Embodied World Models}.
+\newblock \bibinfo{howpublished}{\url{https://world-arena.ai/}}.
+\newblock
+\newblock
+\shownote{Accessed: 2026-05-18}.
+
+
+\bibitem[Zhang et~al\mbox{.}(2025)]%
+        {morpheus2025}
+\bibfield{author}{\bibinfo{person}{Chenyu Zhang}, \bibinfo{person}{Daniil
+  Cherniavskii}, \bibinfo{person}{Andrii Zadaianchuk},
+  \bibinfo{person}{Antonios Tragoudaras}, \bibinfo{person}{Antonios Vozikis},
+  \bibinfo{person}{Thijmen Nijdam}, \bibinfo{person}{Derck W.~E. Prinzhorn},
+  \bibinfo{person}{Mark Bodracska}, \bibinfo{person}{Nicu Sebe}, {and}
+  \bibinfo{person}{Efstratios Gavves}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{{Morpheus}: Benchmarking Physical Reasoning of Video
+  Generative Models with Real Physical Experiments}.
+\newblock
+  \bibinfo{howpublished}{\url{https://huggingface.co/papers/2504.02918}}.
+\newblock
+\newblock
+\shownote{Accessed: 2026-05-18}.
+
+
+\bibitem[Zhang et~al\mbox{.}(2026)]%
+        {physioneval2026}
+\bibfield{author}{\bibinfo{person}{Qin Zhang}, \bibinfo{person}{Peiyu Jing},
+  \bibinfo{person}{Hong-Xing Yu}, \bibinfo{person}{Fangqiang Ding},
+  \bibinfo{person}{Fan Nie}, \bibinfo{person}{Weimin Wang},
+  \bibinfo{person}{Yilun Du}, \bibinfo{person}{James Zou},
+  \bibinfo{person}{Jiajun Wu}, {and} \bibinfo{person}{Bing Shuai}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{{Physion-Eval}: Human Reasoning Traces for Evaluating
+  Physical Realism in Generated Videos}.
+\newblock
+\showeprint[arxiv]{2603.19607}
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2603.19607}
+\showURL{%
+\tempurl}
+
+
+\end{thebibliography}

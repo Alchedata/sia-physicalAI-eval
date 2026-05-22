@@ -1,0 +1,93 @@
+common:
+  num_gpus: 4
+datasets:
+  vla_data:
+    action_type: delta_qpos
+    data_root_dir: data/datasets/libero_datasets
+    dataloader_module: lerobot_datasets
+    dataset_mix: libero_all
+    include_state: false
+    load_all_data_for_training: true
+    obs:
+    - image_0
+    per_device_batch_size: 16
+    sequential_step_sampling: false
+    video_backend: torchvision_av
+environment:
+  wandb_base_url: https://api.bandw.top
+  wandb_entity: ''
+  wandb_mode: disabled
+  wandb_project: WM-Ex
+framework:
+  action_model:
+    action_dim: 7
+    action_hidden_dim: 1024
+    action_horizon: 8
+    action_model_type: DiT-B
+    add_pos_embed: true
+    diffusion_model_cfg:
+      cross_attention_dim: 1024
+      dropout: 0.2
+      output_dim: 1024
+    future_action_window_size: 7
+    hidden_size: 1024
+    max_seq_len: 1024
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0
+    noise_s: 0.999
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    num_timestep_buckets: 1000
+    past_action_window_size: 0
+    repeated_diffusion_steps: 8
+    state_dim: 7
+  name: QwenGR00T
+  qwenvl:
+    base_vlm: world_model-vjepa2
+  world_model:
+    backend: vjepa2
+    checkpoint_path: data/pretrained_models/vjepa2/vjepa2_1_vitG_384.pt
+    freeze_encoder: false
+    fusion_type: cross_attention
+    hidden_size: 1024
+    image_size: 384
+    num_fusion_layers: 2
+    pretrained_dir: data/pretrained_models/vjepa2
+    text_encoder_path: data/pretrained_models/t5-small
+    text_encoder_type: t5-small
+    text_hidden_size: 512
+    use_intermediate_features: false
+    use_video_loss: false
+    video_loss_weight: 0.0
+    # V-JEPA ViT geometry (matches shipped vjepa2.1_vitG_384 checkpoint).
+    vjepa_num_frames: 16
+    vjepa_patch_size: 16
+    vjepa_tubelet_size: 2
+    vjepa_use_rope: true
+    vjepa_interpolate_rope: true
+output_root_dir: ./results/training
+run_id: WM-VJEPA-v1
+seed: 42
+trainer:
+  eval_interval: 99999
+  gradient_accumulation_steps: 1
+  gradient_clipping: 1.0
+  is_resume: false
+  learning_rate:
+    action_model: 0.0001
+    base: 0.0001
+    qwen_vl_interface: 1.0e-05
+  logging_frequency: 1
+  lr_scheduler_type: cosine_with_min_lr
+  max_train_steps: 30000
+  num_warmup_steps: 5000
+  optimizer:
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1.0e-08
+    weight_decay: 1.0e-08
+  save_interval: 5000
+  save_training_state: false
+  scheduler_specific_kwargs:
+    min_lr: 1.0e-06

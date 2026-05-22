@@ -1,0 +1,11 @@
+orchestrator:
+  full_cycle_schedule: "weekly"
+  quick_eval_on_new_model: true
+  promotion_pipeline_schedule: "daily"
+  max_candidates_per_cycle: 50
+  max_parallel_eval_workers: 4
+  gate_timeout_minutes: 120
+  saturation_threshold: 0.95
+  discriminative_power_min: 0.1
+  trace_retention_days: 90
+  n_trials_per_task: 5

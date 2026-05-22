@@ -1,0 +1,55 @@
+This is BibTeX, Version 0.99e (TeX Live 2026)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: ACM-Reference-Format.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: references.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+You've used 16 entries,
+            6273 wiz_defined-function locations,
+            1597 strings with 23723 characters,
+and the built_in function-call counts, 20342 in all, are:
+= -- 1874
+> -- 1689
+< -- 0
++ -- 605
+- -- 608
+* -- 2197
+:= -- 2771
+add.period$ -- 76
+call.type$ -- 16
+change.case$ -- 270
+chr.to.int$ -- 15
+cite$ -- 16
+duplicate$ -- 1126
+empty$ -- 819
+format.name$ -- 651
+if$ -- 4049
+int.to.chr$ -- 3
+int.to.str$ -- 1
+missing$ -- 0
+newline$ -- 219
+num.names$ -- 111
+pop$ -- 535
+preamble$ -- 1
+purify$ -- 386
+quote$ -- 0
+skip$ -- 469
+stack$ -- 0
+substring$ -- 861
+swap$ -- 64
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 474
+warning$ -- 0
+while$ -- 68
+width$ -- 0
+write$ -- 368

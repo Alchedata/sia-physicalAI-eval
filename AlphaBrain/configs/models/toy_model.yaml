@@ -1,0 +1,10 @@
+# ToyVLA 框架配置 — 纯 MLP，无 VLM，专用于管线 debug/overfit 验证
+framework:
+  name: ToyVLA
+  qwenvl:
+    base_vlm: ""       # ToyVLA 不使用 VLM，留空即可
+  action_model:
+    action_model_type: MLP
+    action_dim: 7
+    future_action_window_size: 15
+    past_action_window_size: 0

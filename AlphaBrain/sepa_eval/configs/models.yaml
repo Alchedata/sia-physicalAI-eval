@@ -1,0 +1,16 @@
+models:
+  - model_id: alphabrain_v1
+    framework: alphabrain
+    checkpoint: checkpoints/alphabrain_v1.pth
+    benchmarks:
+      - libero_spatial
+      - libero_object
+      - libero_goal
+      - libero_100
+
+  # Add more model entries below as new checkpoints are registered.
+  # Fields:
+  #   model_id   (required) — unique identifier used across the DB and reports
+  #   framework  (required) — e.g. alphabrain, qwen_oft, paligemma_oft, act
+  #   checkpoint (required) — path or HuggingFace repo ID
+  #   benchmarks (required) — list of benchmark names this model should be evaluated on

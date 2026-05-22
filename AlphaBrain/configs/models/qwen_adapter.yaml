@@ -1,0 +1,21 @@
+# QwenAdapter 框架默认架构配置
+framework:
+  name: QwenAdapter
+  qwenvl:
+    # base_vlm: 通过 CLI 或 finetune_config.yaml 设置
+    attn_implementation: flash_attention_2
+    vl_hidden_dim: 2048
+  dino:
+    dino_backbone: dinov2_vits14
+  action_model:
+    action_model_type: VLA-Adapter
+    hidden_dim: 2048
+    action_dim: 7
+    state_dim: 14
+    action_query_num: 64
+    use_pro_version: true
+    use_proprio: false
+    phase: Training
+    num_actions_chunk: 8
+    future_action_window_size: 7
+  reduce_in_full_precision: true

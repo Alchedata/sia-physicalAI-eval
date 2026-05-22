@@ -1,0 +1,41 @@
+# LlamaOFT framework default architecture config
+framework:
+  name: LlamaOFT
+  llamavl:
+    # base_vlm: set via CLI or finetune_config.yaml
+    base_vlm: ${PRETRAINED_MODELS_DIR}/Llama-3.2-11B-Vision-Instruct
+    attn_implementation: sdpa
+    vl_hidden_dim: 4096
+  qwenvl:
+    # Used by get_vlm_model for routing — must contain "Llama" for detection
+    base_vlm: "Llama-3.2-11B-Vision-Instruct"
+  dino:
+    dino_backbone: dinov2_vits14
+  action_model:
+    action_model_type: DiT-B
+    action_hidden_dim: 4096
+    hidden_size: 4096
+    add_pos_embed: true
+    max_seq_len: 1024
+    action_dim: 14
+    state_dim: 14
+    future_action_window_size: 15
+    action_horizon: 16
+    past_action_window_size: 0
+    repeated_diffusion_steps: 8
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0
+    noise_s: 0.999
+    num_timestep_buckets: 1000
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    diffusion_model_cfg:
+      cross_attention_dim: 4096
+      dropout: 0.2
+      final_dropout: true
+      interleave_self_attention: true
+      norm_type: "ada_norm"
+      num_layers: 16
+      output_dim: 2560
+      positional_embeddings: null
+  reduce_in_full_precision: true

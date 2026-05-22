@@ -1,0 +1,21 @@
+mutation:
+  operators:
+    - name: PosePerturbation
+      delta_pos: [0.02, 0.05, 0.10]
+      delta_rot_deg: [5, 15, 30]
+    - name: DistractorAdd
+      counts: [1, 2, 3]
+    - name: InstructionParaphrase
+      n_variants: 3
+      llm_model: "gpt-4o-mini"
+    - name: MaterialSwap
+      n_variants: 3
+    - name: HorizonExtension
+      extension_factors: [1.5, 2.0]
+  max_variants_per_seed: 10
+  causally_isolate: true
+
+failure_mining:
+  cluster_window:
+    last_n_runs: 5
+  min_cluster_size: 5

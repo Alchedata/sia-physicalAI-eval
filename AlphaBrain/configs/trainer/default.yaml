@@ -1,0 +1,35 @@
+trainer:
+  enable_gradient_checkpointing: true
+  enable_mixed_precision_training: true
+  epochs: 100
+  eval_interval: 100
+  freeze_modules: ''
+  gradient_accumulation_steps: 4
+  gradient_clipping: 1.0
+  is_resume: false
+  learning_rate:
+    action_model: 0.0001
+    base: 2.5e-05
+    qwen_vl_interface: 1.0e-05
+  logging_frequency: 10
+  loss_scale:
+    vla: 1.0
+    vlm: 0.1
+  lr_scheduler_type: cosine_with_min_lr
+  max_grad_norm: 1.0
+  max_train_steps: 100000
+  num_warmup_steps: 5000
+  optimizer:
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1.0e-08
+    name: AdamW
+    weight_decay: 1.0e-08
+  resume_epoch: null
+  resume_step: null
+  save_interval: 5000
+  scheduler_specific_kwargs:
+    min_lr: 1.0e-06
+  warmup_ratio: 0.1
+  weight_decay: 0.0

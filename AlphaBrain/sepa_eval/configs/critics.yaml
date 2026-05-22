@@ -1,0 +1,13 @@
+critics:
+  semantic:
+    default_model: "local"
+    fallback_model: "gpt-4o-mini"
+    circular_bias_patterns:
+      - "Qwen*"
+      - "qwen*"
+  safety:
+    torque_spike_threshold: 5.0
+    grasp_retry_threshold: 2
+    max_episode_length: 500
+  robustness:
+    sensitivity_threshold: 0.15

@@ -1,0 +1,9 @@
+compute_environment: LOCAL_MACHINE
+debug: false
+distributed_type: MULTI_GPU
+mixed_precision: bf16
+num_machines: 1
+num_processes: 1
+use_cpu: false
+dynamo_config:
+  dynamo_backend: "NO"

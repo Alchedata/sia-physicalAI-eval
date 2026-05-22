@@ -1,0 +1,60 @@
+# Cosmos-Policy 框架默认架构配置
+# 基于 Cosmos Predict2 2B Video2World DiT，用于 LIBERO 机器人策略学习
+# 非 VLM 架构 — 使用视频扩散模型在 latent space 中预测动作
+
+framework:
+  name: CosmosPolicy
+  cosmos_policy:
+    # --- Action / sequence ---
+    action_dim: 7          # LIBERO: 7-dim delta actions
+    chunk_size: 16         # action chunk length
+    proprio_dim: 9         # LIBERO: 9-dim proprioception
+    state_t: 9             # number of latent frame slots
+
+    # --- Checkpoint ---
+    checkpoint:
+      pretrained_dir: null  # resolved from env PRETRAINED_MODELS_DIR at runtime
+      load_path: null       # resolved from env PRETRAINED_MODELS_DIR at runtime
+
+    # --- T5 embeddings (precomputed) ---
+    t5_embeddings_path: null  # set per-dataset in finetune_config
+
+    # --- DiT backbone ---
+    dit:
+      max_img_h: 240
+      max_img_w: 240
+      max_frames: 128
+      patch_spatial: 2
+      patch_temporal: 1
+      model_channels: 2048
+      num_blocks: 28
+      num_heads: 16
+      crossattn_emb_channels: 1024
+      use_crossattn_projection: false
+      pos_emb_cls: rope3d
+      mlp_ratio: 4.0
+      use_wan_fp32_strategy: false
+
+    # --- SDE (noise schedule) ---
+    sde:
+      p_mean: 1.3862943611198906
+      p_std: 1.2
+      sigma_max: 200.0
+      sigma_min: 0.01
+
+    # --- Loss weights ---
+    loss:
+      action_loss_multiplier: 1.0
+      world_model_loss_weight: 1.0
+      value_loss_weight: 0.0
+      loss_scale: 10.0
+      sigma_data: 1.0  # Must match original (RectifiedFlowScaling, confirmed at runtime)
+
+    # --- Inference ---
+    inference:
+      action_num_steps: 5
+      sigma_min: 4.0
+      sigma_max: 80.0
+
+    # --- Conditioning ---
+    sigma_conditional: 0.0  # Matches original (condition frames use sigma_conditional for c_noise)

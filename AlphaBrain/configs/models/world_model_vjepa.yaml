@@ -1,0 +1,49 @@
+# World Model V-JEPA 2.1 ViT-Giant + QwenGR00T (FlowMatching DiT action head)
+# V-JEPA is encoder-only: no video loss, frozen encoder
+framework:
+  name: QwenGR00T
+  world_model:
+    backend: vjepa2
+    checkpoint_path: data/pretrained_models/vjepa2/vjepa2_1_vitG_384.pt
+    hidden_size: 1024
+    freeze_encoder: false
+    text_encoder_type: t5-small
+    text_encoder_path: data/pretrained_models/t5-small
+    text_hidden_size: 512
+    fusion_type: cross_attention
+    num_fusion_layers: 2
+    image_size: 384
+    pretrained_dir: data/pretrained_models/vjepa2
+    use_intermediate_features: false
+    use_video_loss: false
+    video_loss_weight: 0.0
+    # V-JEPA ViT geometry (matches shipped vjepa2.1_vitG_384 checkpoint).
+    vjepa_num_frames: 16
+    vjepa_patch_size: 16
+    vjepa_tubelet_size: 2
+    vjepa_use_rope: true
+    vjepa_interpolate_rope: true
+  qwenvl:
+    base_vlm: world_model-vjepa2
+  action_model:
+    action_model_type: DiT-B
+    action_hidden_dim: 1024
+    hidden_size: 1024
+    add_pos_embed: true
+    max_seq_len: 1024
+    action_dim: 7
+    state_dim: 7
+    future_action_window_size: 7
+    action_horizon: 8
+    past_action_window_size: 0
+    repeated_diffusion_steps: 8
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0
+    noise_s: 0.999
+    num_timestep_buckets: 1000
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    diffusion_model_cfg:
+      cross_attention_dim: 1024
+      dropout: 0.2
+      output_dim: 1024

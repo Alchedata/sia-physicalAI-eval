@@ -1,0 +1,31 @@
+# PaliGemmaPi05 框架配置 (Pi0.5 flow matching with action expert)
+# PaliGemma VLM + Gemma action expert + flow matching denoising
+
+framework:
+  name: PaliGemmaPi05
+  pi05: true  # π₀.₅ mode: adaRMS timestep conditioning
+
+  # ── VLM Backbone ──
+  paligemma:
+    base_vlm: ${PRETRAINED_MODELS_DIR}/paligemma-3b-pt-224
+    attn_implementation: flash_attention_2
+
+  # ── Action Expert (独立 Gemma 300M) ──
+  action_expert:
+    width: 1024
+    depth: 18
+    mlp_dim: 4096
+    num_heads: 8
+    num_kv_heads: 1
+    head_dim: 256
+    precision: bfloat16
+
+  # ── Action Head (Flow Matching) ──
+  action_model:
+    action_dim: 7
+    action_horizon: 10               # LIBERO 用 10
+    future_action_window_size: 9
+    past_action_window_size: 0
+    num_inference_steps: 10
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0

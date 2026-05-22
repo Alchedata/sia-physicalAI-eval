@@ -1,0 +1,123 @@
+common:
+  num_gpus: 4
+datasets:
+  vla_data:
+    action_type: delta_qpos
+    data_root_dir: data/datasets/libero_datasets
+    dataloader_module: lerobot_datasets
+    dataset_mix: libero_all
+    default_image_resolution:
+    - 3
+    - 224
+    - 224
+    include_state: false
+    load_all_data_for_training: true
+    load_next_frame: true
+    obs:
+    - image_0
+    per_device_batch_size: 16
+    sequential_step_sampling: false
+    video_backend: torchvision_av
+environment:
+  main_process_port: 29500
+  nccl:
+    async_error_handling: 1
+    blocking_wait: 1
+    ib_hca: mlx5_2,mlx5_3
+    socket_timeout_ms: 360000
+    timeout: 10000
+  num_gpus: 2
+  wandb_base_url: https://api.bandw.top
+  wandb_entity: ''
+  wandb_mode: online
+  wandb_project: WM-Ex
+framework:
+  action_model:
+    action_dim: 7
+    action_hidden_dim: 1024
+    action_horizon: 8
+    action_model_type: DiT-B
+    add_pos_embed: true
+    diffusion_model_cfg:
+      cross_attention_dim: 1024
+      dropout: 0.2
+      output_dim: 1024
+    future_action_window_size: 7
+    hidden_size: 1024
+    max_seq_len: 1024
+    noise_beta_alpha: 1.5
+    noise_beta_beta: 1.0
+    noise_s: 0.999
+    num_inference_timesteps: 4
+    num_target_vision_tokens: 32
+    num_timestep_buckets: 1000
+    past_action_window_size: 0
+    repeated_diffusion_steps: 8
+    state_dim: 7
+  name: QwenGR00T
+  qwenvl:
+    base_vlm: world_model-cosmos2.5
+  world_model:
+    backend: cosmos2.5-diffusers
+    checkpoint_path: data/pretrained_models/Cosmos-Predict2.5-2B-diffusers
+    fusion_type: cross_attention
+    hidden_size: 1024
+    image_size: 224
+    intermediate_layer_ids:
+    - 18
+    # Single-layer action-feature extraction (DiT4DiT ablation: mid > last).
+    feature_layer_id: 18
+    num_fusion_layers: 2
+    pretrained_dir: data/pretrained_models/Cosmos-Predict2.5-2B-diffusers
+    reason1_path: data/pretrained_models/Cosmos-Reason1-7B
+    text_encoder_path: data/pretrained_models/t5-small
+    text_encoder_type: t5-small
+    text_hidden_size: 1024
+    use_intermediate_features: true
+    use_video_loss: true
+    video_loss_weight: 1.0
+    # Diffusion sigma schedule (matches Cosmos scheduler_config.json).
+    sigma_min: 0.002
+    sigma_max: 80.0
+    sigma_data: 1.0
+    sigma_conditional: 0.0001
+output_dir: ./results/training/WM-Cos2-Exact-0415-v2
+output_root_dir: ./results/training
+run_id: WM-Cos25-Exact-0415-v4-4gpu
+seed: 42
+trainer:
+  enable_gradient_checkpointing: true
+  enable_mixed_precision_training: true
+  epochs: 100
+  eval_interval: 99999
+  freeze_modules: ''
+  gradient_accumulation_steps: 1
+  gradient_clipping: 1.0
+  is_resume: false
+  learning_rate:
+    action_model: 0.0001
+    base: 0.0001
+    qwen_vl_interface: 1.0e-05
+  logging_frequency: 1
+  loss_scale:
+    vla: 1.0
+    vlm: 0.1
+  lr_scheduler_type: cosine_with_min_lr
+  max_grad_norm: 1.0
+  max_train_steps: 30000
+  num_warmup_steps: 5000
+  optimizer:
+    betas:
+    - 0.9
+    - 0.95
+    eps: 1.0e-08
+    name: AdamW
+    weight_decay: 1.0e-08
+  resume_epoch: null
+  resume_step: null
+  save_interval: 5000
+  save_training_state: false
+  scheduler_specific_kwargs:
+    min_lr: 1.0e-06
+  warmup_ratio: 0.1
+  weight_decay: 0.0

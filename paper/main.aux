@@ -1,0 +1,115 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{wang2025evalsbreak}
+\@writefile{toc}{\contentsline {section}{Abstract}{1}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Why Static Physical AI Evaluation Fails}{1}{section.2}\protected@file@percent }
+\citation{brohan2023rt2}
+\citation{kim2024openvla}
+\citation{black2024pi0}
+\citation{nvidia2025groot}
+\citation{worldarena2026}
+\citation{worldmodelbench2025}
+\citation{physionatlas2025,physioneval2026}
+\citation{morpheus2025}
+\citation{jiang2026robowm}
+\citation{li2025worldeval}
+\citation{dworldeval2026}
+\citation{nasiriany2024robocasa}
+\citation{robocasa3652026}
+\citation{li2024behavior1k}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Static benchmarks compress behavior into scores, while living evaluation routes saturation, metric gaming, and deployment drift back into new tests.}}{2}{figure.caption.3}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:static-failure}{{1}{2}{Static benchmarks compress behavior into scores, while living evaluation routes saturation, metric gaming, and deployment drift back into new tests}{figure.caption.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Related Work and Resource Landscape}{2}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}VLA and robot foundation models}{2}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}World-model evaluation}{2}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Embodied simulation and task benchmarks}{2}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}What changes in a living evaluator}{2}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Architecture Overview}{2}{section.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Self-evolving agent for Physical AI evaluation. The architecture treats evaluation as a closed-loop system that co-evolves tasks, world models, robot policies, critic ensembles, simulators, real-world rollouts, and evaluation protocols. The central evaluation memory stores tasks, rollouts, predictions, plans, critic judgments, failures, metrics, and human feedback.}}{3}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:architecture}{{2}{3}{Self-evolving agent for Physical AI evaluation. The architecture treats evaluation as a closed-loop system that co-evolves tasks, world models, robot policies, critic ensembles, simulators, real-world rollouts, and evaluation protocols. The central evaluation memory stores tasks, rollouts, predictions, plans, critic judgments, failures, metrics, and human feedback}{figure.caption.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Subject Models Under Evaluation}{3}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}World models}{3}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}VLA and robot policies}{4}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Task and Scenario Evolution}{4}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Seed tasks and benchmarks}{4}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Failure trace mining}{4}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Counterfactual generation}{4}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Adversarial physical perturbation}{4}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Curriculum expansion}{4}{subsection.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}World-Model Evaluation}{4}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Perceptual and temporal quality}{4}{subsection.7.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Trace-to-benchmark distillation. The evaluator converts failures and saturated tasks into attributed mutations, validates them, and promotes only reproducible, meaningful, non-redundant tests.}}{5}{figure.caption.5}\protected@file@percent }
+\newlabel{fig:task-evolution}{{3}{5}{Trace-to-benchmark distillation. The evaluator converts failures and saturated tasks into attributed mutations, validates them, and promotes only reproducible, meaningful, non-redundant tests}{figure.caption.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Promotion criteria for turning generated scenarios into benchmark items.}}{5}{table.caption.6}\protected@file@percent }
+\newlabel{tab:promotion}{{1}{5}{Promotion criteria for turning generated scenarios into benchmark items}{table.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Physical consistency}{5}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}3D and spatial consistency}{5}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Controllability}{5}{subsection.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.5}Downstream robot utility}{5}{subsection.7.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}VLA and Robot Policy Evaluation}{5}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Task success}{5}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Robustness and generalization}{6}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Physical reasoning}{6}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Language-grounded action}{6}{subsection.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5}Recovery and adaptation}{6}{subsection.8.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.6}Safety and risk}{6}{subsection.8.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Critic Ensemble}{6}{section.9}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Sim-real calibration compares predictions, simulation, and real executions. Disagreements become calibration data, simulator-improvement targets, and new benchmark cases.}}{6}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:sim-real}{{4}{6}{Sim-real calibration compares predictions, simulation, and real executions. Disagreements become calibration data, simulator-improvement targets, and new benchmark cases}{figure.caption.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Sim-Real Calibration}{6}{section.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11}Evaluation Memory}{7}{section.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {12}The Self-Evolution Loop}{7}{section.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {13}Worked Example: From Failure to Benchmark}{7}{section.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {14}Metrics}{7}{section.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {15}Example Evaluation Scenarios}{7}{section.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {15.1}Contact-rich manipulation}{7}{subsection.15.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Minimal evaluation-memory record for traceable, revisable evaluation.}}{8}{table.caption.8}\protected@file@percent }
+\newlabel{tab:memory-schema}{{2}{8}{Minimal evaluation-memory record for traceable, revisable evaluation}{table.caption.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Metric families for self-evolving Physical AI evaluation.}}{8}{table.caption.9}\protected@file@percent }
+\newlabel{tab:metrics}{{3}{8}{Metric families for self-evolving Physical AI evaluation}{table.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {15.2}Long-horizon kitchen task}{8}{subsection.15.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {15.3}World-model policy ranking}{8}{subsection.15.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {15.4}Safety-critical counterfactual}{8}{subsection.15.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {16}Research Agenda}{9}{section.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {16.1}Generating physically meaningful tests}{9}{subsection.16.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {16.2}Calibrating critic ensembles}{9}{subsection.16.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {16.3}Measuring world-model utility}{9}{subsection.16.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {16.4}Mining sim-real disagreement}{9}{subsection.16.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {16.5}Evaluation memory and trace-to-benchmark distillation}{9}{subsection.16.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {16.6}Safety-focused self-evolution}{9}{subsection.16.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {17}Implementation Roadmap}{9}{section.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {18}Stakeholder Value}{9}{section.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {19}Discussion and Limitations}{9}{section.19}\protected@file@percent }
+\bibstyle{ACM-Reference-Format}
+\bibdata{references}
+\bibcite{black2024pi0}{{1}{2024}{{Black et~al\mbox  {.}}}{{}}}
+\bibcite{brohan2023rt2}{{2}{2023}{{Brohan et~al\mbox  {.}}}{{}}}
+\bibcite{jiang2026robowm}{{3}{2026}{{Jiang et~al\mbox  {.}}}{{}}}
+\bibcite{kim2024openvla}{{4}{2024}{{Kim et~al\mbox  {.}}}{{}}}
+\bibcite{li2024behavior1k}{{5}{2024}{{Li et~al\mbox  {.}}}{{}}}
+\bibcite{worldmodelbench2025}{{6}{2025a}{{Li et~al\mbox  {.}}}{{}}}
+\bibcite{dworldeval2026}{{7}{2026}{{Li et~al\mbox  {.}}}{{}}}
+\bibcite{li2025worldeval}{{8}{2025b}{{Li et~al\mbox  {.}}}{{}}}
+\bibcite{nasiriany2024robocasa}{{9}{2024}{{Nasiriany et~al\mbox  {.}}}{{}}}
+\bibcite{nvidia2025groot}{{10}{2025}{{NVIDIA}}{{}}}
+\bibcite{physionatlas2025}{{11}{2025}{{Physion Labs}}{{}}}
+\bibcite{robocasa3652026}{{12}{2026}{{RoboCasa365 Authors}}{{}}}
+\bibcite{wang2025evalsbreak}{{13}{2025}{{Wang}}{{}}}
+\bibcite{worldarena2026}{{14}{2026}{{WorldArena Team}}{{}}}
+\bibcite{morpheus2025}{{15}{2025}{{Zhang et~al\mbox  {.}}}{{}}}
+\bibcite{physioneval2026}{{16}{2026}{{Zhang et~al\mbox  {.}}}{{}}}
+\newlabel{tocindent-1}{0pt}
+\newlabel{tocindent0}{0pt}
+\newlabel{tocindent1}{8.37pt}
+\newlabel{tocindent2}{14.53499pt}
+\newlabel{tocindent3}{0pt}
+\newlabel{tocindent4}{0pt}
+\newlabel{tocindent5}{0pt}
+\@writefile{toc}{\contentsline {section}{\numberline {20}Conclusion}{10}{section.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{10}{section*.11}\protected@file@percent }
+\newlabel{TotPages}{{10}{10}{}{page.10}{}}
+\gdef \@abspage@last{10}
