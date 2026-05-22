@@ -1,4 +1,4 @@
-# SEPA-Eval
+# SEPA-Eval: Self-evolving Evaluation System for Physical AI Mdoel
 
 SEPA-Eval is a self-evolving evaluation system for vision-language-action (VLA) models built on top of AlphaBrain. Instead of treating a benchmark as fixed, SEPA-Eval records failures, clusters them, generates harder task variants, validates those candidates through promotion gates, and feeds successful tasks back into the benchmark distribution.
 
@@ -35,6 +35,37 @@ For the most up-to-date task checklist, see [TODOS.md](TODOS.md).
 ## Architecture
 
 SEPA-Eval extends AlphaBrain's existing evaluation flow with a closed loop:
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                     SEPA-Eval VLA System                            │
+│                                                                     │
+│  ┌──────────────┐    ┌───────────────────────┐    ┌─────────────┐  │
+│  │  Enhanced    │───▶│   Evaluation Memory   │◀───│  Reporting  │  │
+│  │  Eval Loops  │    │  (trace store + DB)   │    │  Dashboard  │  │
+│  │  (existing   │    └──────────┬────────────┘    └─────────────┘  │
+│  │   + hooks)   │               │                                   │
+│  └──────────────┘    ┌──────────▼────────────┐                     │
+│                      │   Failure Mining &    │                     │
+│                      │   Attribution Module  │                     │
+│                      └──────────┬────────────┘                     │
+│                                 │                                   │
+│                      ┌──────────▼────────────┐                     │
+│                      │  Scenario Mutation    │                     │
+│                      │  Engine               │                     │
+│                      └──────────┬────────────┘                     │
+│                                 │                                   │
+│  ┌──────────────┐    ┌──────────▼────────────┐                     │
+│  │  Critic      │───▶│  Validation &         │                     │
+│  │  Ensemble    │    │  Promotion Pipeline   │                     │
+│  └──────────────┘    └──────────┬────────────┘                     │
+│                                 │                                   │
+│                      ┌──────────▼────────────┐                     │
+│                      │  Self-Evolution Loop  │                     │
+│                      │  Orchestrator         │                     │
+│                      └───────────────────────┘                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
 1. Evaluate a model on a benchmark and record traces.
 2. Diagnose failures using heuristic classifiers and clustering.
