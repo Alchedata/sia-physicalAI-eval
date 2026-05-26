@@ -3,6 +3,7 @@ ckpts/
 third_party/
 .env
 demo-video/
+demo/output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
