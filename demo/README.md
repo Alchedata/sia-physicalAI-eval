@@ -1,7 +1,6 @@
 # SEPA-Eval Demo
 
-This directory contains everything needed to run an offline demo of the
-SEPA-Eval pipeline without a live GPU or simulator.
+This directory contains everything needed to run an offline demo of the SEPA-Eval pipeline without a live GPU or simulator.
 
 ## Quick Start
 
