@@ -6,6 +6,7 @@ This repository contains:
 
 - `AlphaBrain/`: the upstream training, deployment, and benchmark framework
 - `AlphaBrain/sepa_eval/`: the SEPA-Eval package that is now implemented in this repo
+- `demo/`: synthetic trace generator, customer demo runner, and report-to-HTML dashboard renderer
 - `PRD_SEPA_VLA_Eval.md`: the product and system spec
 - `TODOS.md`: the status tracker for implemented and pending work
 - `paper/`: the white paper source
@@ -203,6 +204,45 @@ cd AlphaBrain
 python -m sepa_eval --memory-dir ../eval_memory review list
 python -m sepa_eval --memory-dir ../eval_memory review approve <task_id>
 ```
+
+## Customer Demo Workflow
+
+For a deterministic customer-facing walkthrough (no live GPU/simulator dependency), use the demo pipeline in `demo/`.
+
+### 1. Generate synthetic traces
+
+```bash
+cd AlphaBrain
+python ../demo/generate_libero_traces.py --output-dir ../demo/demo_eval_memory
+```
+
+### 2. Run the guided customer demo
+
+```bash
+cd demo
+./run_customer_demo.sh
+```
+
+The demo runner generates both `demo/output/report.md` and `demo/output/report.html`.
+
+Optional:
+
+- `./run_customer_demo.sh --no-pause` for an automatic run-through
+- `./run_customer_demo.sh --regenerate` to rebuild demo traces before running
+
+### 3. Render a polished HTML dashboard from the Markdown report
+
+```bash
+python demo/render_report_html.py \
+  --input demo/output/report.md \
+  --output demo/output/report.html
+```
+
+Artifacts produced by the demo workflow:
+
+- Markdown report: `demo/output/report.md`
+- HTML dashboard: `demo/output/report.html`
+- Demo memory (SQLite + msgpack traces): `demo/demo_eval_memory/`
 
 ## AlphaBrain Harness Integration
 

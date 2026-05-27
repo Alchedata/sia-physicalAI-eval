@@ -75,6 +75,7 @@ fi
 
 ALPHABRAIN_DIR="$ROOT_DIR/AlphaBrain"
 REPORT_OUT="$ROOT_DIR/demo/output/report.md"
+HTML_OUT="$ROOT_DIR/demo/output/report.html"
 
 mkdir -p "$(dirname "$REPORT_OUT")"
 
@@ -135,6 +136,11 @@ pause
 run_cmd "Report" \
   python -m sepa_eval --memory-dir "$MEMORY_DIR" report --output "$REPORT_OUT"
 
+if [[ -f "$ROOT_DIR/demo/render_report_html.py" ]]; then
+  run_cmd "HTML Dashboard" \
+    python "$ROOT_DIR/demo/render_report_html.py" --input "$REPORT_OUT" --output "$HTML_OUT"
+fi
+
 echo "Key section preview: Saturation Map"
 awk '/## 2. Saturation Map/{flag=1} /## 3. Failure Taxonomy/{flag=0} flag' "$REPORT_OUT" | head -40
 
@@ -176,5 +182,6 @@ echo
  echo "============================================================"
 echo "Demo complete"
 echo "Report: $REPORT_OUT"
+echo "Dashboard: $HTML_OUT"
 echo "You can now open the report and use this terminal log as your talk track."
 echo "============================================================"
