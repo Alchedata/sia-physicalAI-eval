@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SEPA-Eval Report — 2026-05-27 Dashboard</title>
+  <style>
+    :root {
+      --bg: #f7f4ec;
+      --paper: #fffaf2;
+      --ink: #1d1b18;
+      --muted: #6a6257;
+      --accent: #0c7c59;
+      --accent2: #f08a24;
+      --danger: #c44536;
+      --line: #e8dcc8;
+      --shadow: 0 10px 25px rgba(80, 55, 20, 0.10);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Avenir Next', 'Segoe UI', sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, #fff9e9 0%, transparent 45%),
+        radial-gradient(circle at 100% 10%, #f7e6d7 0%, transparent 35%),
+        var(--bg);
+      line-height: 1.4;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 28px 18px 42px; }
+    header {
+      background: linear-gradient(130deg, #1f4037 0%, #3a7d44 55%, #7ac74f 100%);
+      color: #fff;
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    h1 { margin: 0 0 8px; font-size: 30px; letter-spacing: 0.2px; }
+    .sub { opacity: 0.92; font-size: 14px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; margin-top: 18px; }
+    .kpi { background: var(--paper); border: 1px solid #f1e6d6; border-radius: 14px; padding: 10px 12px; color: var(--ink); }
+    .kpi .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; }
+    .kpi .v { font-size: 22px; font-weight: 700; margin-top: 2px; }
+    .section { margin-top: 18px; }
+    .section h2 { margin: 0 0 10px; font-size: 20px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+    .panel h3 { margin: 0 0 10px; font-size: 16px; }
+    .bar-row { display: grid; grid-template-columns: 200px 1fr 180px; gap: 10px; align-items: center; margin: 7px 0; }
+    .bar-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { width: 100%; height: 12px; border-radius: 999px; background: #efe5d6; overflow: hidden; border: 1px solid #e5d6bf; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #39a96b); }
+    .bar-fill.alt { background: linear-gradient(90deg, #2978a0, #4ca1c9); }
+    .bar-fill.danger { background: linear-gradient(90deg, #d64545, #ef8354); }
+    .bar-val { font-size: 13px; text-align: right; }
+    .muted { color: var(--muted); font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; background: var(--paper); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+    th, td { padding: 10px; border-bottom: 1px solid #efe3cf; text-align: left; font-size: 13px; }
+    th { background: #f4e8d5; font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: #4a443b; }
+    .chip { border: 1px solid; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 600; }
+    .score-cell { background: linear-gradient(90deg, rgba(43, 181, 114, calc(var(--score) * 0.35)) 0%, rgba(240, 162, 2, calc((1 - var(--score)) * 0.20)) 100%); }
+    .weakness-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    ul { margin: 8px 0 0 18px; padding: 0; }
+    li { margin: 4px 0; }
+    footer { margin-top: 14px; color: var(--muted); font-size: 12px; text-align: right; }
+    @media (max-width: 1024px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+      .grid-2, .weakness-grid { grid-template-columns: 1fr; }
+      .bar-row { grid-template-columns: 1fr; }
+      .bar-val { text-align: left; }
+    }
+    @media (max-width: 640px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>SEPA-Eval Report — 2026-05-27 Dashboard</h1>
+      <div class="sub">Quick visual summary for customer demos: benchmark saturation, frontier separation, failure patterns, and promoted evolution tasks.</div>
+      <div class="kpi-grid"><article class='kpi'><div class='k'>Avg SR</div><div class='v'>70.8%</div></article><article class='kpi'><div class='k'>Tasks Tracked</div><div class='v'>20</div></article><article class='kpi'><div class='k'>Saturated Tasks</div><div class='v'>8/26</div></article><article class='kpi'><div class='k'>Saturation Rate</div><div class='v'>30.8%</div></article><article class='kpi'><div class='k'>Seeds Analyzed</div><div class='v'>20</div></article><article class='kpi'><div class='k'>Tasks Promoted</div><div class='v'>4</div></article></div>
+    </header>
+
+    <section class="section">
+      <h2>Capability Frontier by Benchmark</h2>
+      <div class="grid-2"><article class='panel'><h3>libero_goal</h3><div class='bar-row'><div class='bar-label'>QwenOFT-v2.1</div><div class='bar-track'><div class='bar-fill' style='width:55.0%'></div></div><div class='bar-val'>55.0%</div></div><div class='bar-row'><div class='bar-label'>NeuroVLA-v1.2</div><div class='bar-track'><div class='bar-fill' style='width:45.0%'></div></div><div class='bar-val'>45.0%</div></div></article><article class='panel'><h3>libero_spatial</h3><div class='bar-row'><div class='bar-label'>NeuroVLA-v1.2</div><div class='bar-track'><div class='bar-fill' style='width:93.3%'></div></div><div class='bar-val'>93.3%</div></div><div class='bar-row'><div class='bar-label'>QwenOFT-v2.1</div><div class='bar-track'><div class='bar-fill' style='width:90.0%'></div></div><div class='bar-val'>90.0%</div></div></article></div>
+    </section>
+
+    <section class="section">
+      <h2>Saturation and Discriminative Power</h2>
+      <div class="grid-2">
+        <article class="panel">
+          <h3>Most Discriminative Tasks (higher = better model separator)</h3>
+          <div class='bar-row'><div class='bar-label'>e16ceb30-e55b-4c4b-a5a6-f8d129764d5a</div><div class='bar-track'><div class='bar-fill alt' style='width:100.0%'></div></div><div class='bar-val'>0.491 <span class='muted'>(libero_goal, candidate)</span></div></div><div class='bar-row'><div class='bar-label'>18ec3643-5c6c-48d0-ae51-e598727d8712</div><div class='bar-track'><div class='bar-fill alt' style='width:100.0%'></div></div><div class='bar-val'>0.491 <span class='muted'>(libero_goal, candidate)</span></div></div><div class='bar-row'><div class='bar-label'>ae88699f-f204-478c-bf13-bf078c4e55ec</div><div class='bar-track'><div class='bar-fill alt' style='width:77.6%'></div></div><div class='bar-val'>0.381 <span class='muted'>(libero_goal, promoted)</span></div></div><div class='bar-row'><div class='bar-label'>2140b39d-74e0-4c82-9227-e2a833f5238e</div><div class='bar-track'><div class='bar-fill alt' style='width:77.6%'></div></div><div class='bar-val'>0.381 <span class='muted'>(libero_goal, promoted)</span></div></div><div class='bar-row'><div class='bar-label'>7af07b11-f547-4c9f-be6b-30d5460ef602</div><div class='bar-track'><div class='bar-fill alt' style='width:71.3%'></div></div><div class='bar-val'>0.350 <span class='muted'>(libero_goal, promoted)</span></div></div><div class='bar-row'><div class='bar-label'>11f495be-29de-4125-99cd-7f1e8752f5f1</div><div class='bar-track'><div class='bar-fill alt' style='width:71.3%'></div></div><div class='bar-val'>0.350 <span class='muted'>(libero_goal, promoted)</span></div></div><div class='bar-row'><div class='bar-label'>lg_open_oven_door</div><div class='bar-track'><div class='bar-fill alt' style='width:50.9%'></div></div><div class='bar-val'>0.250 <span class='muted'>(libero_goal, seed)</span></div></div><div class='bar-row'><div class='bar-label'>lg_kettle_on_plate</div><div class='bar-track'><div class='bar-fill alt' style='width:50.9%'></div></div><div class='bar-val'>0.250 <span class='muted'>(libero_goal, seed)</span></div></div>
+        </article>
+        <article class="panel">
+          <h3>Failure Category Intensity (all models)</h3>
+          <div class='bar-row'><div class='bar-label'>timeout</div><div class='bar-track'><div class='bar-fill danger' style='width:100.0%'></div></div><div class='bar-val'>16</div></div><div class='bar-row'><div class='bar-label'>contact_dynamics</div><div class='bar-track'><div class='bar-fill danger' style='width:75.0%'></div></div><div class='bar-val'>12</div></div><div class='bar-row'><div class='bar-label'>grasp</div><div class='bar-track'><div class='bar-fill danger' style='width:62.5%'></div></div><div class='bar-val'>10</div></div><div class='bar-row'><div class='bar-label'>out_of_reach</div><div class='bar-track'><div class='bar-fill danger' style='width:50.0%'></div></div><div class='bar-val'>8</div></div><div class='bar-row'><div class='bar-label'>recovery</div><div class='bar-track'><div class='bar-fill danger' style='width:12.5%'></div></div><div class='bar-val'>2</div></div><div class='bar-row'><div class='bar-label'>pose_estimation</div><div class='bar-track'><div class='bar-fill danger' style='width:12.5%'></div></div><div class='bar-val'>2</div></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Cross-Model Task Heatmap</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>NeuroVLA-v1.2</th>
+            <th>QwenOFT-v2.1</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>lg_arrange_fruit_bowl</td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td><td class='score-cell' style='--score:0.000'><span class="chip" style="background:#d6454522;color:#d64545;border-color:#d6454566">Low 0.00</span></td></tr><tr><td>lg_bowl_in_microwave</td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td></tr><tr><td>lg_butter_in_fridge</td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td></tr><tr><td>lg_close_cabinet</td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>lg_cup_in_rack</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>lg_kettle_on_plate</td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td><td class='score-cell' style='--score:0.000'><span class="chip" style="background:#d6454522;color:#d64545;border-color:#d6454566">Low 0.00</span></td></tr><tr><td>lg_lift_book_stack</td><td class='score-cell' style='--score:0.000'><span class="chip" style="background:#d6454522;color:#d64545;border-color:#d6454566">Low 0.00</span></td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td></tr><tr><td>lg_open_oven_door</td><td class='score-cell' style='--score:0.000'><span class="chip" style="background:#d6454522;color:#d64545;border-color:#d6454566">Low 0.00</span></td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td></tr><tr><td>lg_plate_on_stove</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>lg_pour_kettle</td><td class='score-cell' style='--score:0.000'><span class="chip" style="background:#d6454522;color:#d64545;border-color:#d6454566">Low 0.00</span></td><td class='score-cell' style='--score:0.500'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.50</span></td></tr><tr><td>ls_move_block_corner</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>ls_move_plate_behind</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>ls_pick_cup_top_shelf</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>ls_pick_mug_right_shelf</td><td class='score-cell' style='--score:0.670'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.67</span></td><td class='score-cell' style='--score:0.670'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.67</span></td></tr><tr><td>ls_pick_red_cup_left</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>ls_place_bowl_front</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>ls_place_knife_right</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:0.670'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.67</span></td></tr><tr><td>ls_put_butter_right</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:0.670'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.67</span></td></tr><tr><td>ls_put_can_rightmost</td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr><tr><td>ls_slide_book_left</td><td class='score-cell' style='--score:0.670'><span class="chip" style="background:#f0a20222;color:#f0a202;border-color:#f0a20266">Medium 0.67</span></td><td class='score-cell' style='--score:1.000'><span class="chip" style="background:#1f9d6a22;color:#1f9d6a;border-color:#1f9d6a66">High 1.00</span></td></tr>
+        </tbody>
+      </table>
+      <div class='weakness-grid'><article class='panel'><h3>Model-specific Weakness: NeuroVLA-v1.2</h3><ul><li>lg_lift_book_stack</li><li>lg_open_oven_door</li><li>lg_pour_kettle</li></ul></article><article class='panel'><h3>Model-specific Weakness: QwenOFT-v2.1</h3><ul><li>lg_arrange_fruit_bowl</li><li>lg_kettle_on_plate</li></ul></article></div>
+    </section>
+
+    <footer>Generated by SEPA-Eval on 2026-05-27T05:12:34Z</footer>
+  </div>
+</body>
+</html>
