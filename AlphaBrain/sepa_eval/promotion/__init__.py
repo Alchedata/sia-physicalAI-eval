@@ -7,25 +7,25 @@ plus the standalone HumanReviewQueue for audit / async human oversight.
 from __future__ import annotations
 
 from sepa_eval.promotion.gates import (
+    DiscriminativePowerGate,
     GateOutcome,
     GateResult,
-    SolvabilityGate,
-    ReproducibilityGate,
-    RedundancyGate,
-    DiscriminativePowerGate,
     HumanReviewGate,
+    RedundancyGate,
+    ReproducibilityGate,
+    SolvabilityGate,
 )
-from sepa_eval.promotion.pipeline import PromotionPipeline
 from sepa_eval.promotion.human_review_queue import HumanReviewQueue
+from sepa_eval.promotion.pipeline import PromotionPipeline
 
 __all__ = [
+    "DiscriminativePowerGate",
     "GateOutcome",
     "GateResult",
-    "SolvabilityGate",
-    "ReproducibilityGate",
-    "RedundancyGate",
-    "DiscriminativePowerGate",
     "HumanReviewGate",
-    "PromotionPipeline",
     "HumanReviewQueue",
+    "PromotionPipeline",
+    "RedundancyGate",
+    "ReproducibilityGate",
+    "SolvabilityGate",
 ]

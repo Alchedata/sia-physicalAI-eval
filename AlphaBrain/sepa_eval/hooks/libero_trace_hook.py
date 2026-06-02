@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable
 
+from sepa_eval.hooks.base import TraceHook
 from sepa_eval.memory.schema import (
     EpisodeTrace,
     SceneConfig,
     TraceIdentity,
 )
-from sepa_eval.hooks.base import TraceHook
 
 if TYPE_CHECKING:
     from sepa_eval.memory import EvalMemory

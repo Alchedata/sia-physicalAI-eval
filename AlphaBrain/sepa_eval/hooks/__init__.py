@@ -35,8 +35,8 @@ except ImportError:
 
 __all__ = [
     "BenchmarkAdapter",
-    "TraceHook",
     "LiberoHook",
     "RobocasaHook",
+    "TraceHook",
     "run_libero_episode_with_trace",
 ]

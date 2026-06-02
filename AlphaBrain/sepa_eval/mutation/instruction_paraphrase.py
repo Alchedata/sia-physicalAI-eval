@@ -178,7 +178,7 @@ class InstructionParaphrase(MutationOperator):
             Any other API-layer exception is propagated; callers catch it.
         """
         try:
-            import openai  # noqa: PLC0415  (lazy import — optional dep)
+            import openai
         except ImportError as exc:
             raise MutationError(
                 "InstructionParaphrase requires the 'openai' package. "

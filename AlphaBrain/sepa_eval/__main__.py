@@ -94,10 +94,10 @@ def cmd_run(args) -> int:
     # Optional mutation operators
     mutation_engine = []
     try:
-        from sepa_eval.mutation.pose_perturbation import PosePerturbation
         from sepa_eval.mutation.distractor_add import DistractorAdd
         from sepa_eval.mutation.instruction_paraphrase import InstructionParaphrase
         from sepa_eval.mutation.material_swap import MaterialSwap
+        from sepa_eval.mutation.pose_perturbation import PosePerturbation
         mutation_engine = [
             PosePerturbation(),
             DistractorAdd(),
@@ -558,7 +558,7 @@ def cmd_diff(args) -> int:
     if regressions:
         print(f"⚠  {regressions} task(s) regressed (SR drop > 0.05) in {model_b} vs {model_a}")
     else:
-        print(f"✓  No significant regressions detected.")
+        print("✓  No significant regressions detected.")
 
     memory.close()
     return 1 if regressions and getattr(args, "fail_on_regression", False) else 0

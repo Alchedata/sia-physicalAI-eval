@@ -100,7 +100,7 @@ class HardCaseExporter:
                             "action": _coerce_json(act),
                         }
                         for obs, act in zip(
-                            trace.rollout.observations, trace.rollout.actions
+                            trace.rollout.observations, trace.rollout.actions, strict=False
                         )
                     ],
                     "failure_type": trace.labels.failure_type,

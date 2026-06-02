@@ -4,6 +4,8 @@ third_party/
 .env
 demo-video/
 demo/output/*
+AlphaBrain/data/
+LIBERO/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

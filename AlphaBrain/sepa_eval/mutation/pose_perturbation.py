@@ -16,7 +16,7 @@ from sepa_eval.mutation.base_operator import MutationError, MutationOperator
 class PosePerturbation(MutationOperator):
     """Perturb object positions and rotations by configurable delta steps.
 
-    For each combination of ``delta_pos`` × ``delta_rot_deg``, one candidate
+    For each combination of ``delta_pos`` x ``delta_rot_deg``, one candidate
     is produced with all pose-related keys perturbed by a random amount
     drawn from ``Uniform(-delta, +delta)``.
 

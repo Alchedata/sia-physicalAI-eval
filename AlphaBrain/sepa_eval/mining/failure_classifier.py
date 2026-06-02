@@ -309,7 +309,7 @@ def _l2_norm(action: Any) -> float:
 def _l2_dist(a: Any, b: Any) -> float:
     """L2 distance between two action vectors."""
     if hasattr(a, "__iter__") and hasattr(b, "__iter__"):
-        return math.sqrt(sum((float(x) - float(y)) ** 2 for x, y in zip(a, b)))
+        return math.sqrt(sum((float(x) - float(y)) ** 2 for x, y in zip(a, b, strict=False)))
     return abs(float(a) - float(b))
 
 

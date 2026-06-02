@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import fnmatch
 import json
+import typing
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,7 +21,7 @@ from typing import Any
 class CriticResult:
     """Structured output from a single judge call."""
 
-    completion: float        # 0.0 – 1.0 task completion score
+    completion: float        # 0.0 - 1.0 task completion score
     object_correct: bool     # did the robot interact with the correct object?
     collateral_damage: bool  # did the robot disturb objects it should not have?
     explanation: str         # free-text reasoning from the judge
@@ -42,7 +43,7 @@ class SemanticCritic:
     self-serving scores.
     """
 
-    _DEFAULT_CIRCULAR_BIAS_PATTERNS: list[str] = ["Qwen*", "qwen*"]
+    _DEFAULT_CIRCULAR_BIAS_PATTERNS: typing.ClassVar[list[str]] = ["Qwen*", "qwen*"]
 
     def __init__(
         self,
@@ -225,8 +226,9 @@ def _encode_frame(frame: Any) -> str:
 
     try:
         import io
-        from PIL import Image  # type: ignore
+
         import numpy as np  # type: ignore
+        from PIL import Image  # type: ignore
 
         img = Image.fromarray(np.asarray(frame))
         buf = io.BytesIO()

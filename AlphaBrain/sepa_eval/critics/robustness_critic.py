@@ -10,7 +10,7 @@ Given a list of trace rows for all variants of a single task family, the critic:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

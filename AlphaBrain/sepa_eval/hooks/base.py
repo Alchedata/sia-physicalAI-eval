@@ -10,9 +10,9 @@ from sepa_eval.memory.schema import (
     EpisodeTrace,
     RolloutData,
     SceneConfig,
+    TaskProvenance,
     TraceIdentity,
     TraceLabels,
-    TaskProvenance,
 )
 
 if TYPE_CHECKING:

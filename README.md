@@ -84,24 +84,18 @@ AlphaBrain/sepa_eval/
 
 ## Installation
 
-The `sepa_eval` package lives inside `AlphaBrain/`. Install from that subdirectory.
+### SEPA-Eval package only
 
-### Base install
+The `sepa_eval` package lives inside `AlphaBrain/`. Install from that subdirectory.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ./AlphaBrain
-```
-
-### Dev install
-
-```bash
 pip install -e "./AlphaBrain[dev]"   # adds black, ruff, pre-commit
+pip install msgpack scikit-learn jinja2 pyyaml openai pyarrow pytest
 ```
 
-### Optional dependencies
-
-| Package | Required for |
+| Optional package | Required for |
 |---|---|
 | `msgpack` | Trace persistence (required) |
 | `scikit-learn` | Failure clustering |
@@ -111,11 +105,16 @@ pip install -e "./AlphaBrain[dev]"   # adds black, ruff, pre-commit
 | `pyarrow` | LeRobot-style parquet export |
 | `pytest` | Running the test suite |
 
-```bash
-pip install msgpack scikit-learn jinja2 pyyaml openai pyarrow pytest
-```
+### Full benchmark setup (LIBERO + RoboCasa)
 
-For full benchmark evaluation (LIBERO, RoboCasa), follow the environment setup in `AlphaBrain/.env.example` and the benchmark-specific Python environment requirements in [CLAUDE.md](CLAUDE.md).
+Running SEPA-Eval against real simulators requires three separate Python environments and several dataset downloads. See **[SETUP.md](SETUP.md)** for the complete step-by-step guide covering:
+
+- AlphaBrain conda environment
+- LIBERO simulator installation and data preparation
+- RoboCasa Tabletop environment (robosuite 1.5.1 + tabletop fork + assets)
+- RoboCasa 365 environment
+- `.env` variable reference with correct path conventions
+- Verification commands and common pitfalls
 
 ---
 

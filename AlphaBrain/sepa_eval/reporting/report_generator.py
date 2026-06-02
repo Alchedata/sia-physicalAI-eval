@@ -5,11 +5,9 @@ Uses Jinja2 when available; falls back to simple string formatting.
 """
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from sepa_eval.reporting.heatmap import build_task_model_heatmap, render_heatmap_markdown
 
@@ -196,8 +194,6 @@ class ReportGenerator:
 
     def _render(self, context: dict) -> str:
         """Render using Jinja2 if available, else fall back to string formatting."""
-        template_path = self._template_dir / _TEMPLATE_NAME
-
         try:
             from jinja2 import Environment, FileSystemLoader  # type: ignore
 

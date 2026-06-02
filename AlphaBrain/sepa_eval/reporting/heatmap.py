@@ -1,12 +1,12 @@
 """
-Task × model success-rate heatmap builder and Markdown renderer.
+Task x model success-rate heatmap builder and Markdown renderer.
 """
 from __future__ import annotations
 
 
 def build_task_model_heatmap(model_task_results: list[dict]) -> dict:
     """
-    Build a task × model SR matrix.
+    Build a task x model SR matrix.
 
     Parameters
     ----------
@@ -18,7 +18,7 @@ def build_task_model_heatmap(model_task_results: list[dict]) -> dict:
     dict with keys:
         models            list[str]         — sorted unique model IDs
         tasks             list[str]         — sorted unique task IDs
-        matrix            list[list[float]] — tasks × models; None where no data
+        matrix            list[list[float]] - tasks x models; None where no data
         universal_failures list[str]        — task_ids where ALL models SR < 0.4
         model_specific_weaknesses dict[str, list[str]]
                                             — model_id → task_ids where only that
@@ -42,7 +42,7 @@ def build_task_model_heatmap(model_task_results: list[dict]) -> dict:
     for r in model_task_results:
         lookup[(r["task_id"], r["model_id"])] = float(r["success_rate"])
 
-    # Build matrix (tasks × models); use None for missing pairs.
+    # Build matrix (tasks x models); use None for missing pairs.
     matrix: list[list[float | None]] = []
     for task_id in tasks:
         row: list[float | None] = []
@@ -52,7 +52,7 @@ def build_task_model_heatmap(model_task_results: list[dict]) -> dict:
 
     # Universal failures: all models SR < 0.4 (only tasks with at least one SR value)
     universal_failures: list[str] = []
-    for task_id, row in zip(tasks, matrix):
+    for task_id, row in zip(tasks, matrix, strict=False):
         non_none = [v for v in row if v is not None]
         if non_none and all(v < 0.4 for v in non_none):
             universal_failures.append(task_id)
@@ -60,7 +60,7 @@ def build_task_model_heatmap(model_task_results: list[dict]) -> dict:
     # Model-specific weaknesses: only *this* model fails (SR < 0.4) while all
     # others have SR >= 0.4.
     model_specific_weaknesses: dict[str, list[str]] = {m: [] for m in models}
-    for task_id, row in zip(tasks, matrix):
+    for task_id, row in zip(tasks, matrix, strict=False):
         for mi, model_id in enumerate(models):
             this_sr = row[mi]
             if this_sr is None or this_sr >= 0.4:
@@ -89,7 +89,7 @@ def render_heatmap_markdown(heatmap: dict) -> str:
 
     Color codes:
         SR > 0.8  → ✅
-        SR 0.4–0.8 → ⚠️
+        SR 0.4-0.8 -> ⚠️
         SR < 0.4  → ❌
         No data    → —
     """
@@ -114,7 +114,7 @@ def render_heatmap_markdown(heatmap: dict) -> str:
     separator = "|------|" + "------|" * len(models)
 
     rows = [header, separator]
-    for task_id, row in zip(tasks, matrix):
+    for task_id, row in zip(tasks, matrix, strict=False):
         cells = " | ".join(_cell(sr) for sr in row)
         rows.append(f"| `{task_id}` | {cells} |")
 

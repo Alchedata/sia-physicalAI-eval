@@ -1,13 +1,13 @@
 try:
     from sepa_eval.memory.schema import (
-        EpisodeTrace,
-        TraceIdentity,
-        SceneConfig,
-        RolloutData,
-        TraceLabels,
-        TaskProvenance,
-        CandidateTask,
         FAILURE_TYPES,
+        CandidateTask,
+        EpisodeTrace,
+        RolloutData,
+        SceneConfig,
+        TaskProvenance,
+        TraceIdentity,
+        TraceLabels,
     )
 except ImportError:
     pass
@@ -18,7 +18,13 @@ except ImportError:
     pass
 
 __all__ = [
-    "EpisodeTrace", "TraceIdentity", "SceneConfig", "RolloutData",
-    "TraceLabels", "TaskProvenance", "CandidateTask", "FAILURE_TYPES",
+    "FAILURE_TYPES",
+    "CandidateTask",
+    "EpisodeTrace",
     "EvalMemory",
+    "RolloutData",
+    "SceneConfig",
+    "TaskProvenance",
+    "TraceIdentity",
+    "TraceLabels",
 ]

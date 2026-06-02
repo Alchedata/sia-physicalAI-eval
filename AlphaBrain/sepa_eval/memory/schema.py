@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # EpisodeTrace sub-structs
 # ---------------------------------------------------------------------------

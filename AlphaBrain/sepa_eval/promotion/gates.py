@@ -17,7 +17,6 @@ from typing import Any, Callable
 
 from sepa_eval.promotion.human_review_queue import HumanReviewQueue
 
-
 # ---------------------------------------------------------------------------
 # Shared result types
 # ---------------------------------------------------------------------------
@@ -343,7 +342,7 @@ def _bytes_to_vec(data: bytes) -> list[float] | None:
 
 def _dot(a: list[float], b: list[float]) -> float:
     """Dot product of two equal-length lists."""
-    return sum(x * y for x, y in zip(a, b))
+    return sum(x * y for x, y in zip(a, b, strict=False))
 
 
 def _norm(v: list[float]) -> float:

@@ -14,11 +14,11 @@ from sepa_eval.mutation.material_swap import MaterialSwap
 from sepa_eval.mutation.pose_perturbation import PosePerturbation
 
 __all__ = [
-    "MutationOperator",
-    "MutationError",
-    "PosePerturbation",
-    "MaterialSwap",
     "DistractorAdd",
-    "InstructionParaphrase",
     "HorizonExtension",
+    "InstructionParaphrase",
+    "MaterialSwap",
+    "MutationError",
+    "MutationOperator",
+    "PosePerturbation",
 ]

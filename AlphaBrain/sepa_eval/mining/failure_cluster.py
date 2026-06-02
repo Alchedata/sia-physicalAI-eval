@@ -7,7 +7,7 @@ sklearn is imported lazily so the module can be imported without it installed
 from __future__ import annotations
 
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from sepa_eval.memory.schema import FAILURE_TYPES
 
@@ -31,7 +31,7 @@ class FailureClusterer:
     Clusters VLA failure traces using DBSCAN over a compact embedding vector.
 
     The embedding is:
-        [failure_step / episode_length,   # 1 dim  (0.0 – 1.0)
+        [failure_step / episode_length,   # 1 dim  (0.0 - 1.0)
          <failure_type one-hot>]           # 8 dims (one per canonical type)
 
     Total embedding size: 9 dimensions.
@@ -70,7 +70,7 @@ class FailureClusterer:
             for ft in _FAILURE_TYPE_LIST
         ]
 
-        return [norm_step] + one_hot
+        return [norm_step, *one_hot]
 
     # ------------------------------------------------------------------
     # Window filtering
@@ -140,7 +140,7 @@ class FailureClusterer:
         result: list[FailureCluster] = []
         for cluster_label, member_indices in clusters_map.items():
             member_rows = [trace_rows[i] for i in member_indices]
-            member_trace_ids = [r.get("trace_id", str(i)) for r, i in zip(member_rows, member_indices)]
+            member_trace_ids = [r.get("trace_id", str(i)) for r, i in zip(member_rows, member_indices, strict=False)]
 
             # Majority-vote failure_type within the cluster.
             type_counts: dict[str | None, int] = {}
@@ -152,7 +152,7 @@ class FailureClusterer:
             # Representative = trace whose failure_step is closest to the median.
             failure_steps = [
                 (row.get("failure_step") or 0, idx)
-                for idx, row in zip(member_indices, member_rows)
+                for idx, row in zip(member_indices, member_rows, strict=False)
             ]
             steps_only = [fs for fs, _ in failure_steps]
             median_step = statistics.median(steps_only)
