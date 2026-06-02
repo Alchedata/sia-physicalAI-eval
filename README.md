@@ -92,17 +92,14 @@ The `sepa_eval` package lives inside `AlphaBrain/`. Install from that subdirecto
 python -m venv .venv && source .venv/bin/activate
 pip install -e ./AlphaBrain
 pip install -e "./AlphaBrain[dev]"   # adds black, ruff, pre-commit
-pip install msgpack scikit-learn jinja2 pyyaml openai pyarrow pytest
 ```
 
-| Optional package | Required for |
+All runtime dependencies (`msgpack`, `scikit-learn`, `jinja2`, `pyyaml`, `openai`, `requests`, `pyarrow`, `Pillow`, `numpy`) are declared in `pyproject.toml` and installed automatically. After installation, the `sepa-eval` CLI is available directly on your PATH.
+
+| Optional extra | Required for |
 |---|---|
-| `msgpack` | Trace persistence (required) |
-| `scikit-learn` | Failure clustering |
-| `jinja2` | Templated report rendering |
-| `pyyaml` | Config and model registry loading |
-| `openai` | Instruction paraphrase mutation operator |
-| `pyarrow` | LeRobot-style parquet export |
+| `openai` | Instruction paraphrase mutation + GPT-4o-mini fallback critic |
+| `pyarrow` | LeRobot-style parquet export (graceful JSONL fallback if absent) |
 | `pytest` | Running the test suite |
 
 ### Full benchmark setup (LIBERO + RoboCasa)
@@ -122,35 +119,37 @@ Running SEPA-Eval against real simulators requires three separate Python environ
 
 All commands run from the `AlphaBrain/` directory.
 
+All commands use the `sepa-eval` CLI installed with the package, or equivalently `python -m sepa_eval`.
+
 ### 1. Check memory status
 
 ```bash
-python -m sepa_eval --memory-dir ../eval_memory status
+sepa-eval --memory-dir ./eval_memory status
 ```
 
 ### 2. Register / sync models
 
 ```bash
-python -m sepa_eval --memory-dir ../eval_memory sync-models
+sepa-eval --memory-dir ./eval_memory sync-models
 ```
 
 ### 3. Run the evolution loop
 
 ```bash
-python -m sepa_eval --memory-dir ../eval_memory run
+sepa-eval --memory-dir ./eval_memory run
 ```
 
 ### 4. Generate a Markdown report
 
 ```bash
-python -m sepa_eval --memory-dir ../eval_memory report --output ../eval_memory/report.md
+sepa-eval --memory-dir ./eval_memory report --output ./eval_memory/report.md
 ```
 
 ### 5. Review pending promotion candidates
 
 ```bash
-python -m sepa_eval --memory-dir ../eval_memory review list
-python -m sepa_eval --memory-dir ../eval_memory review approve <task_id>
+sepa-eval --memory-dir ./eval_memory review list
+sepa-eval --memory-dir ./eval_memory review approve <task_id>
 ```
 
 ---
@@ -243,31 +242,32 @@ Artifacts produced: `demo/output/report.md`, `demo/output/report.html`, `demo/de
 ## Development and Testing
 
 ```bash
-# Run all SEPA-Eval tests
-cd AlphaBrain
-pytest sepa_eval/tests -v
+# Run all SEPA-Eval tests (from repo root)
+pytest AlphaBrain/sepa_eval/tests -v
 
 # Lint
-ruff check .
-black --check .
+ruff check AlphaBrain/sepa_eval/
+black --check AlphaBrain/
 ```
 
-Test coverage includes: memory and trace persistence, critics, mutation operators, failure classification and clustering, promotion pipeline, exporter, registry, and integration-level flows.
+The test suite has **86 tests** (1 intentionally skipped — Phase 5 live-simulator e2e). Coverage includes: memory and trace persistence, critics, mutation operators, failure classification and clustering, promotion pipeline, exporter, registry, orchestrator evolution loop, reporting and heatmaps, LIBERO and RoboCasa benchmark hooks, and integration-level flows. Production code passes ruff with zero violations.
 
 ---
 
 ## Current Status
 
-**Implemented and test-covered:**
+**Implemented and test-covered (86 tests, ruff clean):**
 - Trace hooks and benchmark adapters (LIBERO, RoboCasa)
 - Persistent memory (SQLite WAL + msgpack) with crash-safe writes
 - Failure classification, clustering, and seed extraction
 - Full mutation operator suite (5 operators)
 - Promotion gates + async pipeline with evidence recording
 - Orchestrator loop, metrics output, and review CLI
-- Reporting, hard-case export, and model registry
+- Reporting with task×model heatmaps, hard-case export, and model registry
+- `sepa-eval` CLI entry point; all runtime deps declared in `pyproject.toml`
 
 **Pending / in progress:**
+- `/judge` endpoint wiring in `server_policy.py` (needed for local VLM critic)
 - Long-term storage migration beyond SQLite (ANN indexing for large trace volumes)
 - Simulator-specific validation (LIBERO state replay, RoboCasa material override fidelity)
 - Full end-to-end evolution loop verified against a live simulator
