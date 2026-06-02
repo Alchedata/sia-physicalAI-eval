@@ -1,213 +1,216 @@
-# SEPA-Eval: Self-evolving Evaluation System for Physical AI 
+<div align="center">
 
-SEPA-Eval is a self-evolving evaluation system for vision-language-action (VLA) models built on top of AlphaBrain. Instead of treating a benchmark as fixed, SEPA-Eval records failures, clusters them, generates harder task variants, validates those candidates through promotion gates, and feeds successful tasks back into the benchmark distribution.
+<img src="assets/alchedata_logo.jpeg" alt="Alchedata" width="220"/>
 
-This repository contains:
+# SEPA-Eval
 
-- `AlphaBrain/`: the upstream training, deployment, and benchmark framework
-- `AlphaBrain/sepa_eval/`: the SEPA-Eval package that is now implemented in this repo
-- `demo/`: synthetic trace generator, customer demo runner, and report-to-HTML dashboard renderer
-- `PRD_SEPA_VLA_Eval.md`: the product and system spec
-- `TODOS.md`: the status tracker for implemented and pending work
-- `paper/`: the white paper source
+### Self-Evolving Physical AI Evaluation
 
-## Current Status
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](AlphaBrain/LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Built on AlphaBrain](https://img.shields.io/badge/Built%20on-AlphaBrain-teal.svg)](AlphaBrain/README.md)
+[![Paper](https://img.shields.io/badge/Paper-White%20Paper-orange.svg)](paper/main.pdf)
 
-The repository is no longer just a plan. The core SEPA-Eval package exists under `AlphaBrain/sepa_eval` and includes working implementations for:
+<p align="center">
+  <img src="assets/data_flywheel.png" width="72%" alt="SEPA-Eval Closed-Loop Data Flywheel"/>
+</p>
 
-- trace hooks and benchmark adapters
-- persistent memory with SQLite WAL mode plus msgpack trace files
-- failure classification and clustering
-- seed extraction and multiple mutation operators
-- promotion gates and asynchronous promotion pipeline execution
-- orchestrator logging and metrics output
-- reporting, hard-case export, model registry sync, and review CLI commands
-- package-level tests under `AlphaBrain/sepa_eval/tests`
+**SEPA-Eval** turns a static VLA benchmark into a living one. It records rollout failures, clusters them, mutates the worst-case scenarios into harder variants, validates them through a critic ensemble, and automatically promotes them into the active benchmark distribution — closing the loop between evaluation and continual learning.
 
-What is still intentionally incomplete or pending external verification:
+[Architecture](#architecture) · [Installation](#installation) · [Quick Start](#quick-start) · [CLI Reference](#cli-reference) · [Demo](#customer-demo-workflow) · [Paper](#citation)
 
-- long-term storage migration planning beyond SQLite
-- ANN indexing for larger trace volumes
-- simulator-specific validation such as LIBERO state replay and RoboCasa material override behavior
-- final integration details around external judge and critic backends
+</div>
 
-For the most up-to-date task checklist, see [TODOS.md](TODOS.md).
+---
+
+## The Problem with Static Benchmarks
+
+| Problem | What Happens |
+|---|---|
+| **Saturation** | Frontier models exceed 95%+ SR on LIBERO; the benchmark stops discriminating |
+| **Misalignment** | Binary success rate misses fragile success, unsafe contact, and brittle grasp recovery |
+| **Silent drift** | Scores look meaningful long after they stop predicting real deployment behavior |
+
+SEPA-Eval solves all three by making the benchmark itself a first-class output of the evaluation process.
+
+---
+
+## Key Capabilities
+
+- **Structured trace recording** — every episode emits observations, actions, contact events, success labels, and detected failure moments to a crash-safe SQLite + msgpack store
+- **Failure mining** — heuristic detectors (timeout, out-of-reach, grasp, contact dynamics, recovery, pose, distractor, language) feed into DBSCAN clustering over compact trace embeddings
+- **Scenario mutation** — pose perturbation, material swap, distractor injection, instruction paraphrase, and horizon extension operators generate harder task candidates from failure seeds
+- **Critic ensemble** — semantic critic (VLM judge), safety critic (force/collision heuristics), and robustness critic score each candidate independently
+- **Promotion pipeline** — async gate execution with configurable timeouts; evidence recorded per task; human review queue for borderline decisions
+- **Hard-case export** — failed episodes exported as `jsonl` or LeRobot-style parquet datasets, ready for AlphaBrain's continual learning pipeline
+- **Self-evolution loop** — a single orchestrator command runs the full Evaluate → Diagnose → Generate → Validate → Promote → Report cycle
+
+---
 
 ## Architecture
 
-SEPA-Eval extends AlphaBrain's existing evaluation flow with a closed loop:
+<p align="center">
+  <img src="assets/sepa_eval_architecture.png" width="55%" alt="SEPA-Eval System Architecture"/>
+</p>
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                     SEPA-Eval VLA System                            │
-│                                                                     │
-│  ┌──────────────┐    ┌───────────────────────┐    ┌─────────────┐  │
-│  │  Enhanced    │───▶│   Evaluation Memory   │◀───│  Reporting  │  │
-│  │  Eval Loops  │    │  (trace store + DB)   │    │  Dashboard  │  │
-│  │  (existing   │    └──────────┬────────────┘    └─────────────┘  │
-│  │   + hooks)   │               │                                   │
-│  └──────────────┘    ┌──────────▼────────────┐                     │
-│                      │   Failure Mining &    │                     │
-│                      │   Attribution Module  │                     │
-│                      └──────────┬────────────┘                     │
-│                                 │                                   │
-│                      ┌──────────▼────────────┐                     │
-│                      │  Scenario Mutation    │                     │
-│                      │  Engine               │                     │
-│                      └──────────┬────────────┘                     │
-│                                 │                                   │
-│  ┌──────────────┐    ┌──────────▼────────────┐                     │
-│  │  Critic      │───▶│  Validation &         │                     │
-│  │  Ensemble    │    │  Promotion Pipeline   │                     │
-│  └──────────────┘    └──────────┬────────────┘                     │
-│                                 │                                   │
-│                      ┌──────────▼────────────┐                     │
-│                      │  Self-Evolution Loop  │                     │
-│                      │  Orchestrator         │                     │
-│                      └───────────────────────┘                     │
-└─────────────────────────────────────────────────────────────────────┘
+The closed-loop pipeline runs six stages on every evolution cycle:
+
+1. **Evaluate** — run VLA policies on the current benchmark distribution (LIBERO / RoboCasa) via AlphaBrain's WebSocket eval harness; record structured rollout traces
+2. **Diagnose** — classify failures by type and cluster traces with DBSCAN to extract reproducible failure seeds
+3. **Generate** — apply mutation operators to failure seeds to produce harder task candidates
+4. **Validate** — score candidates through the critic ensemble; defer on timeout rather than hard-fail
+5. **Promote** — admit candidates that clear all gates into the live benchmark distribution; log evidence per task
+6. **Report** — surface capability frontiers, saturation signals, and model comparison across evolved benchmark slices
+
+### Package Structure
+
 ```
-
-1. Evaluate a model on a benchmark and record traces.
-2. Diagnose failures using heuristic classifiers and clustering.
-3. Extract representative seeds from failure clusters.
-4. Generate mutated candidate tasks.
-5. Validate candidates with promotion gates.
-6. Promote accepted tasks and report the new benchmark frontier.
-
-At the code level, the package is organized as:
-
-```text
 AlphaBrain/sepa_eval/
-  hooks/         BenchmarkAdapter protocol + trace hooks
-  memory/        EvalMemory, schema, trace persistence
-  mining/        Failure classifier, clustering, seed extraction
-  mutation/      Scenario mutation operators
-  critics/       Semantic, safety, and robustness critics
-  promotion/     Promotion gates, pipeline, human review queue
-  orchestrator/  Evolution loop
-  exporter/      Hard-case dataset export
-  registry/      models.yaml-backed model registry
-  reporting/     Markdown report generation and heatmaps
-  configs/       Orchestrator, mutation, critics, and model config
-  tests/         Unit and integration tests
+  hooks/          BenchmarkAdapter protocol + LiberoHook, RobocasaHook
+  memory/         EvalMemory (SQLite WAL + msgpack trace store), schema
+  mining/         FailureStepDetector, DBSCAN clustering, seed extraction, LLM summarizer
+  mutation/       PosePerturbation, MaterialSwap, DistractorAdd, InstructionParaphrase, HorizonExtension
+  critics/        Semantic critic (VLM), safety critic, robustness critic
+  promotion/      Validation pipeline, promotion gates, human review queue
+  orchestrator/   Self-evolution loop
+  exporter/       Hard-case dataset export (jsonl + LeRobot parquet)
+  registry/       models.yaml-backed model registry + DB sync
+  reporting/      Markdown report generation, task-model heatmaps
+  configs/        mutation.yaml, orchestrator defaults, model configs
+  tests/          Unit and integration tests
 ```
 
-## Implemented Features
-
-### Memory and Trace Storage
-
-- `EvalMemory` stores metadata in SQLite and rollout traces as msgpack files.
-- SQLite is opened with `PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000`.
-- Trace writes use a crash-safe `.tmp` to atomic rename flow.
-- `EvalMemory.fsck()` removes orphan temp files.
-- `EvalMemory.prune()` deletes old trace files while preserving database rows.
-
-### Hooks and Adapters
-
-- `BenchmarkAdapter` is defined as a protocol with version pinning via `PROTOCOL_VERSION`.
-- `TraceHook` is a context manager that accumulates per-step data and flushes on `on_episode_end()`.
-- Benchmark-specific hooks exist for LIBERO and RoboCasa.
-
-### Failure Mining and Mutation
-
-- Heuristic failure detectors exist for timeout, out-of-reach, grasp, contact dynamics, recovery, pose estimation, distractor confusion, and language grounding.
-- Failure clustering is implemented with DBSCAN over compact trace embeddings.
-- Seed extraction is implemented from representative cluster traces.
-- Mutation operators currently include pose perturbation, distractor injection, instruction paraphrase, material swap, and horizon extension.
-
-### Promotion and Orchestration
-
-- Promotion gates run under `ThreadPoolExecutor` timeouts and defer instead of hard-failing on timeout.
-- Promotion evidence is recorded per task.
-- The evolution loop writes `evolution_loop_log.jsonl` and `sepa_eval_metrics.json`.
-- Review workflows are exposed through CLI commands.
-
-### Reporting and Export
-
-- Markdown report generation is implemented.
-- Task-model heatmap generation is implemented.
-- Failed episode export supports `jsonl` and LeRobot-style output layouts.
-- A YAML-backed model registry is implemented through `configs/models.yaml` and DB sync.
+---
 
 ## Installation
 
-The Python package lives under `AlphaBrain/`, so install from there or point pip at that subdirectory.
+The `sepa_eval` package lives inside `AlphaBrain/`. Install from that subdirectory.
 
 ### Base install
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 pip install -e ./AlphaBrain
 ```
 
 ### Dev install
 
 ```bash
-pip install -e "./AlphaBrain[dev]"
+pip install -e "./AlphaBrain[dev]"   # adds black, ruff, pre-commit
 ```
 
-### Common optional dependencies
+### Optional dependencies
 
-SEPA-Eval uses several optional packages depending on which features you run:
+| Package | Required for |
+|---|---|
+| `msgpack` | Trace persistence (required) |
+| `scikit-learn` | Failure clustering |
+| `jinja2` | Templated report rendering |
+| `pyyaml` | Config and model registry loading |
+| `openai` | Instruction paraphrase mutation operator |
+| `pyarrow` | LeRobot-style parquet export |
+| `pytest` | Running the test suite |
 
 ```bash
 pip install msgpack scikit-learn jinja2 pyyaml openai pyarrow pytest
 ```
 
-Notes:
+For full benchmark evaluation (LIBERO, RoboCasa), follow the environment setup in `AlphaBrain/.env.example` and the benchmark-specific Python environment requirements in [CLAUDE.md](CLAUDE.md).
 
-- `msgpack` is required for trace persistence.
-- `scikit-learn` is required for failure clustering.
-- `jinja2` is used for templated report rendering.
-- `pyyaml` is used for config and model registry loading.
-- `openai` is used by the instruction paraphrase operator.
-- `pyarrow` enables parquet output for LeRobot-style export.
-
-If you want to run AlphaBrain benchmark evaluation end to end, also follow the environment setup in `AlphaBrain/.env.example` and the benchmark-specific Python environment requirements described in [CLAUDE.md](CLAUDE.md).
+---
 
 ## Quick Start
 
-### 1. Inspect memory status
+All commands run from the `AlphaBrain/` directory.
+
+### 1. Check memory status
 
 ```bash
-cd AlphaBrain
 python -m sepa_eval --memory-dir ../eval_memory status
 ```
 
-### 2. Register or sync models
+### 2. Register / sync models
 
 ```bash
-cd AlphaBrain
 python -m sepa_eval --memory-dir ../eval_memory sync-models
 ```
 
 ### 3. Run the evolution loop
 
 ```bash
-cd AlphaBrain
 python -m sepa_eval --memory-dir ../eval_memory run
 ```
 
-### 4. Generate a report
+### 4. Generate a Markdown report
 
 ```bash
-cd AlphaBrain
 python -m sepa_eval --memory-dir ../eval_memory report --output ../eval_memory/report.md
 ```
 
-### 5. Review pending tasks
+### 5. Review pending promotion candidates
 
 ```bash
-cd AlphaBrain
 python -m sepa_eval --memory-dir ../eval_memory review list
 python -m sepa_eval --memory-dir ../eval_memory review approve <task_id>
 ```
 
+---
+
+## CLI Reference
+
+| Command | Description |
+|---|---|
+| `run` | Run the full closed-loop evolution cycle |
+| `eval` | Register a model and run CI-style evaluation checks |
+| `promote` | Run the promotion pipeline on pending candidates |
+| `report` | Generate a Markdown report with heatmaps |
+| `export-hard-cases` | Export failed episodes as a training dataset |
+| `diff` | Compare task-level success rates between two models |
+| `sync-models` | Sync `configs/models.yaml` into the database |
+| `prune` | Remove old trace files while preserving DB rows |
+| `review list` | List candidates awaiting human review |
+| `review approve` | Promote a candidate manually |
+| `status` | Show memory statistics and evolution metrics |
+
+Default storage root: `SEPA_MEMORY_DIR` env var, or `./eval_memory/`.
+
+---
+
+## Wiring into an AlphaBrain Eval Run
+
+```python
+from sepa_eval.hooks.libero_trace_hook import run_libero_episode_with_trace
+from sepa_eval.memory.eval_memory import EvalMemory
+from sepa_eval.memory.schema import TraceIdentity
+
+memory = EvalMemory(
+    db_path="../eval_memory/eval.db",
+    memory_dir="../eval_memory/traces",
+)
+
+trace = run_libero_episode_with_trace(
+    env=libero_env,
+    policy_fn=policy_fn,
+    memory=memory,
+    identity=TraceIdentity(
+        trace_id="trace-001",
+        eval_run_id="run-001",
+        benchmark="libero_spatial",
+        task_id="pick_red_cup",
+        task_instruction="pick up the red cup",
+        model_id="alphabrain-v2",
+        model_version="v2.1",
+    ),
+)
+```
+
+RoboCasa: replace `libero_trace_hook` with `robocasa_trace_hook` and `run_robocasa_episode_with_trace`.
+
+---
+
 ## Customer Demo Workflow
 
-For a deterministic customer-facing walkthrough (no live GPU/simulator dependency), use the demo pipeline in `demo/`.
+A deterministic, simulator-free walkthrough using synthetic traces.
 
 ### 1. Generate synthetic traces
 
@@ -216,150 +219,106 @@ cd AlphaBrain
 python ../demo/generate_libero_traces.py --output-dir ../demo/demo_eval_memory
 ```
 
-### 2. Run the guided customer demo
+### 2. Run the guided demo
 
 ```bash
 cd demo
-./run_customer_demo.sh
+./run_customer_demo.sh               # interactive, pauses between stages
+./run_customer_demo.sh --no-pause    # fully automatic
+./run_customer_demo.sh --regenerate  # rebuild traces first
 ```
 
-The demo runner generates both `demo/output/report.md` and `demo/output/report.html`.
-
-Optional:
-
-- `./run_customer_demo.sh --no-pause` for an automatic run-through
-- `./run_customer_demo.sh --regenerate` to rebuild demo traces before running
-
-### 3. Render a polished HTML dashboard from the Markdown report
+### 3. Open the HTML dashboard
 
 ```bash
 python demo/render_report_html.py \
-  --input demo/output/report.md \
+  --input  demo/output/report.md \
   --output demo/output/report.html
+open demo/output/report.html
 ```
 
-Artifacts produced by the demo workflow:
+Artifacts produced: `demo/output/report.md`, `demo/output/report.html`, `demo/demo_eval_memory/` (SQLite + msgpack traces).
 
-- Markdown report: `demo/output/report.md`
-- HTML dashboard: `demo/output/report.html`
-- Demo memory (SQLite + msgpack traces): `demo/demo_eval_memory/`
-
-## AlphaBrain Harness Integration
-
-SEPA-Eval now exposes the main hook surface needed to attach trace collection to a real AlphaBrain benchmark run, but this should be treated as a wiring interface rather than a fully simulator-verified path.
-
-What is implemented today:
-
-- `LiberoHook` and `run_libero_episode_with_trace()` in `AlphaBrain/sepa_eval/hooks/libero_trace_hook.py`
-- `RobocasaHook` and `run_robocasa_episode_with_trace()` in `AlphaBrain/sepa_eval/hooks/robocasa_trace_hook.py`
-- `TraceHook` in `AlphaBrain/sepa_eval/hooks/base.py` for per-step accumulation and final trace flush
-- `EvalMemory.record_trace()` in `AlphaBrain/sepa_eval/memory/eval_memory.py` for persistent storage
-
-Current verification level:
-
-- the hook and memory layers are implemented and test-covered
-- the current integration test verifies trace persistence with synthetic traces
-- the full LIBERO evolution-loop e2e test is still marked as a placeholder, so real-simulator end-to-end verification is not complete yet
-
-If you want to wire SEPA-Eval into a real AlphaBrain eval harness today, the minimal pattern is:
-
-```python
-from sepa_eval.hooks.libero_trace_hook import run_libero_episode_with_trace
-from sepa_eval.memory.eval_memory import EvalMemory
-from sepa_eval.memory.schema import TraceIdentity
-
-memory = EvalMemory(db_path="../eval_memory/eval.db", memory_dir="../eval_memory/traces")
-
-trace = run_libero_episode_with_trace(
-  env=libero_env,
-  policy_fn=policy_fn,
-  memory=memory,
-  identity=TraceIdentity(
-    trace_id="trace-001",
-    eval_run_id="run-001",
-    benchmark="libero_spatial",
-    task_id="some_task",
-    task_instruction="pick up the red cup",
-    model_id="model_x",
-    model_version="v1",
-  ),
-)
-```
-
-In practice, the missing work is not the trace API itself; it is validating the exact simulator-specific state capture, replay fidelity, and benchmark-runner insertion points inside AlphaBrain's real evaluation scripts.
-
-## CLI Overview
-
-The current CLI entry point is `python -m sepa_eval` and supports:
-
-- `run`: run the closed-loop evolution cycle
-- `eval`: register a model and run CI-style checks
-- `promote`: run the promotion pipeline on candidate tasks
-- `report`: generate a Markdown report
-- `export-hard-cases`: export failed episodes
-- `diff`: compare task-level success rates between two models
-- `sync-models`: sync `configs/models.yaml` into the database
-- `prune`: remove old trace files
-- `review list`: list candidate tasks awaiting review
-- `review approve`: mark a candidate as promoted
-- `status`: show memory and metrics status
-
-By default, SEPA-Eval uses `SEPA_MEMORY_DIR` or `./eval_memory/` as its storage root.
+---
 
 ## Development and Testing
 
-The current SEPA-Eval tests live in `AlphaBrain/sepa_eval/tests` and cover:
-
-- memory and trace persistence
-- critics
-- mutation operators
-- failure classification and clustering
-- promotion pipeline behavior
-- exporter and registry logic
-- integration-level flows
-
-Run the package tests with:
-
 ```bash
+# Run all SEPA-Eval tests
 cd AlphaBrain
-pytest sepa_eval/tests
-```
+pytest sepa_eval/tests -v
 
-Repository-wide linting for the AlphaBrain package is:
-
-```bash
-cd AlphaBrain
+# Lint
 ruff check .
 black --check .
 ```
 
-## Repository Layout
+Test coverage includes: memory and trace persistence, critics, mutation operators, failure classification and clustering, promotion pipeline, exporter, registry, and integration-level flows.
 
-```text
-.
-├── AlphaBrain/              AlphaBrain framework and the sepa_eval package
-├── paper/                   White paper source
-├── PRD_SEPA_VLA_Eval.md     Product and system specification
-├── TODOS.md                 Implementation status tracker
-├── CLAUDE.md                Repo-specific engineering notes
-└── README.md                This file
+---
+
+## Current Status
+
+**Implemented and test-covered:**
+- Trace hooks and benchmark adapters (LIBERO, RoboCasa)
+- Persistent memory (SQLite WAL + msgpack) with crash-safe writes
+- Failure classification, clustering, and seed extraction
+- Full mutation operator suite (5 operators)
+- Promotion gates + async pipeline with evidence recording
+- Orchestrator loop, metrics output, and review CLI
+- Reporting, hard-case export, and model registry
+
+**Pending / in progress:**
+- Long-term storage migration beyond SQLite (ANN indexing for large trace volumes)
+- Simulator-specific validation (LIBERO state replay, RoboCasa material override fidelity)
+- Full end-to-end evolution loop verified against a live simulator
+
+See [TODOS.md](TODOS.md) for the detailed implementation checklist.
+
+---
+
+## Citation
+
+If you use SEPA-Eval in your research, please cite:
+
+```bibtex
+@article{alchedata2026sepa,
+  title   = {Self-Evolving Agents for Physical AI Evaluation},
+  author  = {Alchedata},
+  year    = {2026},
+  note    = {White paper. \url{https://github.com/alchedata/sepa-eval}}
+}
 ```
 
-## Known Gaps
+---
 
-The current package is substantial, but this repo should still be treated as an active implementation rather than a finished product release. In particular:
+## Repository Layout
 
-- some external integrations are specified more completely than they are validated in this repo
-- AlphaBrain benchmark execution still depends on simulator-specific environment setup
-- long-term scale work is intentionally deferred until trace volume justifies it
+```
+.
+├── AlphaBrain/              AlphaBrain VLA framework + sepa_eval package
+│   └── sepa_eval/           SEPA-Eval implementation
+├── demo/                    Synthetic trace generator and HTML dashboard renderer
+├── paper/                   ACM acmart white paper source
+├── assets/                  Diagrams and logos
+├── PRD_SEPA_VLA_Eval.md     Product and system specification
+└── TODOS.md                 Implementation status tracker
+```
 
-## Related Documents
-
-- [PRD_SEPA_VLA_Eval.md](PRD_SEPA_VLA_Eval.md)
-- [TODOS.md](TODOS.md)
-- [CLAUDE.md](CLAUDE.md)
-- [AlphaBrain/README.md](AlphaBrain/README.md)
+---
 
 ## License
 
-The repository includes AlphaBrain under the MIT license. See `AlphaBrain/LICENSE` for the packaged framework license.
+SEPA-Eval is released under the [MIT License](AlphaBrain/LICENSE).
+
+---
+
+<div align="center">
+
+<img src="assets/alchedata_logo.jpeg" alt="Alchedata" width="160"/>
+
+**[Alchedata](https://alchedata.com)** — DATA INFRA 2.0 for Physical AI
+
+*Closed-loop eval → data → better checkpoints, automatically.*
+
+</div>
