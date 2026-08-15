@@ -3,6 +3,7 @@ ReportGenerator: produce a Markdown eval report from EvalMemory data.
 
 Uses Jinja2 when available; falls back to simple string formatting.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,9 +32,7 @@ class ReportGenerator:
 
     def __init__(self, memory, template_dir: str | None = None) -> None:
         self._memory = memory
-        self._template_dir = (
-            Path(template_dir) if template_dir else _DEFAULT_TEMPLATE_DIR
-        )
+        self._template_dir = Path(template_dir) if template_dir else _DEFAULT_TEMPLATE_DIR
 
     # ------------------------------------------------------------------
     # Public API
@@ -50,9 +49,7 @@ class ReportGenerator:
         saturation_map = self._get_saturation_map()
 
         # Task summary (seeds / candidates / promoted)
-        seeds_analyzed, candidates_generated, tasks_promoted = (
-            self._get_task_summary()
-        )
+        seeds_analyzed, candidates_generated, tasks_promoted = self._get_task_summary()
         if cycle_result is not None:
             if hasattr(cycle_result, "candidates_generated"):
                 candidates_generated = cycle_result.candidates_generated
@@ -95,10 +92,22 @@ class ReportGenerator:
     # Data gathering helpers
     # ------------------------------------------------------------------
 
+    def _query(self, sql: str, params: tuple = ()) -> list[dict]:
+        """Run a read-only query through the memory's public query API.
+
+        Prefers ``EvalMemory.query()``; falls back to a raw connection only
+        for legacy duck-typed memory objects that predate the read-only API.
+        """
+        query = getattr(self._memory, "query", None)
+        if callable(query):
+            return query(sql, params)
+        cur = self._memory._conn.execute(sql, params)  # legacy fallback
+        return [dict(row) for row in cur.fetchall()]
+
     def _get_capability_frontier(self) -> list[dict]:
         """Return rows from model_task_results for the capability frontier table."""
         try:
-            cur = self._memory._conn.execute(
+            return self._query(
                 """
                 SELECT model_id, benchmark, task_id,
                        success_rate, clean_success_rate, n_trials, last_eval_at
@@ -106,7 +115,6 @@ class ReportGenerator:
                 ORDER BY benchmark, model_id, task_id
                 """
             )
-            return [dict(row) for row in cur.fetchall()]
         except Exception as exc:
             logger.warning("Could not query model_task_results: %s", exc)
             return []
@@ -114,7 +122,7 @@ class ReportGenerator:
     def _get_failure_taxonomy(self) -> dict:
         """Return failure_type distribution per model: {model_id: {failure_type: count}}."""
         try:
-            cur = self._memory._conn.execute(
+            rows = self._query(
                 """
                 SELECT model_id, failure_type, COUNT(*) as cnt
                 FROM traces
@@ -124,8 +132,7 @@ class ReportGenerator:
                 """
             )
             taxonomy: dict[str, dict[str, int]] = {}
-            for row in cur.fetchall():
-                row = dict(row)
+            for row in rows:
                 model = row["model_id"]
                 ft = row["failure_type"]
                 taxonomy.setdefault(model, {})[ft] = row["cnt"]
@@ -137,7 +144,7 @@ class ReportGenerator:
     def _get_saturation_map(self) -> list[dict]:
         """Return tasks with their saturation status."""
         try:
-            cur = self._memory._conn.execute(
+            return self._query(
                 """
                 SELECT task_id, benchmark, promotion_status,
                        discriminative_power, saturation_flag
@@ -145,7 +152,6 @@ class ReportGenerator:
                 ORDER BY saturation_flag DESC, discriminative_power ASC
                 """
             )
-            return [dict(row) for row in cur.fetchall()]
         except Exception as exc:
             logger.warning("Could not query tasks table: %s", exc)
             return []
@@ -153,7 +159,7 @@ class ReportGenerator:
     def _get_task_summary(self) -> tuple[int, int, int]:
         """Return (seeds_analyzed, candidates_generated, tasks_promoted)."""
         try:
-            cur = self._memory._conn.execute(
+            rows = self._query(
                 """
                 SELECT promotion_status, COUNT(*) as cnt
                 FROM tasks
@@ -161,8 +167,7 @@ class ReportGenerator:
                 """
             )
             counts: dict[str, int] = {}
-            for row in cur.fetchall():
-                row = dict(row)
+            for row in rows:
                 counts[row["promotion_status"]] = row["cnt"]
 
             seeds = counts.get("seed", 0)
@@ -176,14 +181,13 @@ class ReportGenerator:
     def _get_heatmap_data(self) -> list[dict]:
         """Return [{model_id, task_id, success_rate}] from model_task_results."""
         try:
-            cur = self._memory._conn.execute(
+            return self._query(
                 """
                 SELECT model_id, task_id, success_rate
                 FROM model_task_results
                 WHERE success_rate IS NOT NULL
                 """
             )
-            return [dict(row) for row in cur.fetchall()]
         except Exception as exc:
             logger.warning("Could not query heatmap data: %s", exc)
             return []
@@ -215,6 +219,7 @@ class ReportGenerator:
 # Table renderers
 # ---------------------------------------------------------------------------
 
+
 def _render_capability_table(rows: list[dict]) -> str:
     if not rows:
         return "_No capability data available._"
@@ -240,15 +245,10 @@ def _render_saturation_table(rows: list[dict]) -> str:
     sep = "|------|-----------|--------|-------------|-----------|"
     lines = [header, sep]
     for r in rows:
-        dp = (
-            f"{r.get('discriminative_power', 0.0):.3f}"
-            if r.get("discriminative_power") is not None
-            else "—"
-        )
+        dp = f"{r.get('discriminative_power', 0.0):.3f}" if r.get("discriminative_power") is not None else "—"
         sat = "Yes" if r.get("saturation_flag") else "No"
         lines.append(
-            f"| {r.get('task_id', '')} | {r.get('benchmark', '')} "
-            f"| {r.get('promotion_status', '')} | {dp} | {sat} |"
+            f"| {r.get('task_id', '')} | {r.get('benchmark', '')} " f"| {r.get('promotion_status', '')} | {dp} | {sat} |"
         )
     return "\n".join(lines)
 

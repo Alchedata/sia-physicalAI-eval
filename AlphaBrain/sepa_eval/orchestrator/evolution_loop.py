@@ -20,6 +20,18 @@ def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).replace(tzinfo=None).isoformat()
 
 
+def _extract_frames(trace: Any) -> list:
+    """Pull per-step camera images out of an EpisodeTrace (best effort)."""
+    frames: list = []
+    rollout = getattr(trace, "rollout", None)
+    for obs in getattr(rollout, "observations", None) or []:
+        images = obs.get("images") if isinstance(obs, dict) else None
+        if images:
+            # take the first camera view per step
+            frames.append(next(iter(images.values())))
+    return frames
+
+
 @dataclass
 class EvolutionCycleResult:
     cycle_id: str
@@ -49,8 +61,11 @@ class EvolutionLoopOrchestrator:
         config: dict | None = None,
         log_path: str = "./eval_memory/evolution_loop_log.jsonl",
         metrics_path: str = "./eval_memory/sepa_eval_metrics.json",
+        critics: dict | None = None,    # {"safety": SafetyCritic, "robustness": RobustnessCritic, "semantic": ...}
     ) -> None:
         self._memory = memory
+        self._critics = critics or {}
+        self._last_critic_latency_ms: float = 0.0
         self._clusterer = clusterer
         self._seed_extractor = seed_extractor
         self._mutation_engine = mutation_engine if mutation_engine is not None else []
@@ -196,12 +211,33 @@ class EvolutionLoopOrchestrator:
             self._log_step(cycle_id, "validate_promote", "started")
             promoted_count = 0
 
+            # --- Critics: score failure traces before gate evaluation -----
+            self._last_critic_latency_ms = self._run_critics(cycle_id, trace_rows)
+
             if self._promotion_pipeline is not None and all_candidates:
-                try:
-                    promoted_ids = self._promotion_pipeline.run(all_candidates)
-                    promoted_count = len(promoted_ids) if promoted_ids else 0
-                except Exception as exc:
-                    logger.warning("PromotionPipeline.run() raised: %s", exc)
+                gate_kwargs: dict[str, Any] = {}
+                if eval_fn is not None:
+                    gate_kwargs["eval_fn"] = eval_fn
+                if model_ids is not None:
+                    gate_kwargs["model_ids"] = model_ids
+                gate_kwargs.update(self._config.get("gate_kwargs", {}))
+
+                for candidate in all_candidates:
+                    task_id = getattr(candidate, "task_id", "?")
+                    try:
+                        status, evidence = self._promotion_pipeline.run(candidate, **gate_kwargs)
+                    except Exception as exc:
+                        logger.error("PromotionPipeline.run() raised for task %s: %s", task_id, exc)
+                        self._log_step(
+                            cycle_id, "validate_promote", "error", task_id=task_id, error=str(exc)
+                        )
+                        continue
+                    try:
+                        self._memory.update_task_promotion_status(task_id, status, evidence)
+                    except Exception as exc:
+                        logger.warning("Could not persist promotion status for %s: %s", task_id, exc)
+                    if status == "promoted":
+                        promoted_count += 1
 
             result.candidates_promoted = promoted_count
             self._log_step(
@@ -328,7 +364,7 @@ class EvolutionLoopOrchestrator:
             "traces_written": traces_written,
             "candidates_generated": candidates_total,
             "promotion_yield": round(promotion_yield, 4),
-            "critic_latency_ms": 0.0,
+            "critic_latency_ms": round(self._last_critic_latency_ms, 2),
             "gate_timeout_count": gate_timeout_count,
             "last_cycle_at": _now_iso(),
         }
@@ -338,6 +374,75 @@ class EvolutionLoopOrchestrator:
                 json.dump(metrics, fh, indent=2)
         except OSError as exc:
             logger.warning("Could not write metrics file: %s", exc)
+
+    def _run_critics(self, cycle_id: str, trace_rows: list[dict]) -> float:
+        """
+        Run configured critics over failure trace rows and persist scores.
+
+        Returns total wall-clock critic latency in milliseconds.  Any critic
+        failure is logged and skipped; critics never abort the cycle.
+        """
+        if not self._critics or not trace_rows:
+            return 0.0
+
+        import time
+
+        start = time.perf_counter()
+
+        safety = self._critics.get("safety")
+        if safety is not None:
+            for row in trace_rows:
+                trace_id = row.get("trace_id")
+                try:
+                    res = safety.evaluate(row)
+                    self._memory.update_critic_score(
+                        trace_id=trace_id,
+                        critic_name="safety",
+                        score=float(getattr(res, "score", 0.0)),
+                        explanation=str(getattr(res, "explanation", "")),
+                        confidence=float(getattr(res, "confidence", 1.0)),
+                    )
+                except Exception as exc:
+                    logger.warning("SafetyCritic failed on trace %s: %s", trace_id, exc)
+
+        robustness = self._critics.get("robustness")
+        if robustness is not None:
+            try:
+                res = robustness.evaluate(trace_rows)
+                self._log_step(
+                    cycle_id,
+                    "validate_promote",
+                    "critic_robustness",
+                    score=float(getattr(res, "score", 0.0)),
+                    explanation=str(getattr(res, "explanation", ""))[:500],
+                )
+            except Exception as exc:
+                logger.warning("RobustnessCritic failed: %s", exc)
+
+        semantic = self._critics.get("semantic")
+        if semantic is not None:
+            for row in trace_rows:
+                trace_id = row.get("trace_id")
+                trace_path = row.get("trace_path")
+                if not trace_path:
+                    continue
+                try:
+                    trace = self._memory.load_trace_file(trace_path)
+                    frames = _extract_frames(trace)
+                    if not frames:
+                        continue
+                    res = semantic.judge(frames=frames, instruction=row.get("task_instruction", ""))
+                    self._memory.update_critic_score(
+                        trace_id=trace_id,
+                        critic_name="semantic",
+                        score=float(getattr(res, "score", 0.0)),
+                        explanation=str(getattr(res, "explanation", "")),
+                        confidence=float(getattr(res, "confidence", 1.0)),
+                    )
+                except Exception as exc:
+                    logger.warning("SemanticCritic failed on trace %s: %s", trace_id, exc)
+
+        return (time.perf_counter() - start) * 1000.0
 
     def _check_saturation(self, threshold: float = 0.95) -> int:
         """

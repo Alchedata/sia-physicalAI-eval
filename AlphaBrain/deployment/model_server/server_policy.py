@@ -7,6 +7,7 @@ import logging
 import socket
 import argparse
 from deployment.model_server.tools.websocket_policy_server import WebsocketPolicyServer
+from deployment.model_server.judge_endpoint import maybe_start_judge_server
 from AlphaBrain.model.framework.base_framework import BaseFramework
 import torch, os
 
@@ -29,6 +30,13 @@ def main(args) -> None:
     local_ip = socket.gethostbyname(hostname)
     logging.info("Creating server (host: %s, ip: %s)", hostname, local_ip)
 
+    # optionally start the SEPA /judge HTTP endpoint (PRD §8.3); disabled unless
+    # --judge_port or SEPA_JUDGE_PORT is set, so default behavior is unchanged.
+    judge_port = args.judge_port if args.judge_port is not None else int(os.environ.get("SEPA_JUDGE_PORT", 0))
+    judge_server = maybe_start_judge_server(vla, judge_port)
+    if judge_server is not None:
+        logging.info("SEPA /judge endpoint enabled on port %d", judge_server.port)
+
     # start websocket server
     server = WebsocketPolicyServer(
         policy=vla,
@@ -47,6 +55,13 @@ def build_argparser():
     parser.add_argument("--port", type=int, default=10093)
     parser.add_argument("--use_bf16", action="store_true")
     parser.add_argument("--idle_timeout" , type=int, default=1800, help="Idle timeout in seconds, -1 means never close")
+    parser.add_argument(
+        "--judge_port",
+        type=int,
+        default=None,
+        help="Enable the SEPA /judge HTTP endpoint on this port (falls back to SEPA_JUDGE_PORT env var; "
+        "recommended 10092; unset disables it)",
+    )
     return parser
 
 

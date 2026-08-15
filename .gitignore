@@ -6,6 +6,7 @@ demo-video/
 demo/output/*
 AlphaBrain/data/
 LIBERO/
+eval_memory/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

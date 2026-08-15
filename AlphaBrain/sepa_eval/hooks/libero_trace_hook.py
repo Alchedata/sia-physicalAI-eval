@@ -4,8 +4,10 @@ libero_trace_hook.py — BenchmarkAdapter wrapping a LIBERO eval environment.
 The actual LIBERO library is not required at import time; LiberoHook accepts
 any duck-typed object that exposes the LIBERO env interface.
 """
+
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Callable
 
 from sepa_eval.hooks.base import TraceHook
@@ -22,6 +24,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 # LiberoHook — BenchmarkAdapter
 # ---------------------------------------------------------------------------
+
 
 class LiberoHook:
     """
@@ -54,23 +57,61 @@ class LiberoHook:
         env: Any,
         task_id: str,
         scene_config: dict | None = None,
+        base_init_state: Any = None,
+        replay_on_reset: bool = False,
     ) -> None:
         self._env = env
         self._task_id = task_id
         self._scene_config: dict = scene_config if scene_config is not None else {}
+        self._base_init_state = base_init_state
+        self._replay_on_reset = replay_on_reset
+        self._last_replay_info: dict | None = None
 
     # ------------------------------------------------------------------
     # BenchmarkAdapter protocol
     # ------------------------------------------------------------------
 
     def reset(self) -> dict:
-        """Reset the LIBERO env and return the initial observation dict."""
+        """Reset the LIBERO env and return the initial observation dict.
+
+        When ``replay_on_reset`` is enabled and a mutated ``scene_config`` is
+        present, the scene config is replayed into the simulator via
+        ``sepa_eval.replay.replay_scene_config`` (set_init_state).  Replay
+        failures degrade gracefully to a plain reset ("reseed" mode) and are
+        recorded in ``self.last_replay_info``.
+        """
         obs = self._env.reset()
         # Some LIBERO env implementations return None from reset() and
         # expose get_obs() separately.
         if obs is None and hasattr(self._env, "get_obs"):
             obs = self._env.get_obs()
+
+        if self._replay_on_reset and self._scene_config:
+            from sepa_eval.replay import ReplayError, replay_scene_config
+
+            try:
+                replay_obs, info = replay_scene_config(
+                    self._env,
+                    self._scene_config,
+                    base_init_state=self._base_init_state,
+                )
+                self._last_replay_info = info
+                if replay_obs is not None:
+                    obs = replay_obs
+            except ReplayError as exc:
+                logging.getLogger(__name__).warning(
+                    "Scene-config replay failed for task %s; falling back to reseed reset: %s",
+                    self._task_id,
+                    exc,
+                )
+                self._last_replay_info = {"error": str(exc), "mode": "reseed_fallback"}
+
         return obs if isinstance(obs, dict) else {"obs": obs}
+
+    @property
+    def last_replay_info(self) -> dict | None:
+        """Bookkeeping from the most recent scene-config replay (or None)."""
+        return self._last_replay_info
 
     def step(self, action: Any) -> tuple:
         """
@@ -91,9 +132,7 @@ class LiberoHook:
         elif len(result) == 3:
             obs, done, info = result
         else:
-            raise ValueError(
-                f"Unexpected step() return length {len(result)} from LIBERO env."
-            )
+            raise ValueError(f"Unexpected step() return length {len(result)} from LIBERO env.")
 
         if not isinstance(obs, dict):
             obs = {"obs": obs}
@@ -111,6 +150,7 @@ class LiberoHook:
 # ---------------------------------------------------------------------------
 # Helper: run one full LIBERO episode with trace collection
 # ---------------------------------------------------------------------------
+
 
 def run_libero_episode_with_trace(
     env: Any,
@@ -154,7 +194,7 @@ def run_libero_episode_with_trace(
     scene_cfg_dict = adapter.get_scene_config()
     scene = SceneConfig(
         scene_config=scene_cfg_dict,
-        init_state=b"",   # simulator snapshot not available at this layer
+        init_state=b"",  # simulator snapshot not available at this layer
         replay_mode="reseed",
     )
 

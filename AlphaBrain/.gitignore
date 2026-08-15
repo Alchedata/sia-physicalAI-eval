@@ -292,3 +292,8 @@ configs/continual_learning/*_widepool_*.yaml
 configs/continual_learning/*_aligned_*.yaml
 *_sweep.py
 results/
+
+# sepa_eval test suite must be tracked (overrides the generic tests/ ignore above)
+!sepa_eval/tests/
+!sepa_eval/tests/**
+sepa_eval/tests/__pycache__/

@@ -110,8 +110,22 @@ def cmd_run(args) -> int:
     # Optional promotion pipeline
     promotion_pipeline = None
     try:
+        from sepa_eval.promotion.gates import (  # type: ignore
+            DiscriminativePowerGate,
+            HumanReviewGate,
+            RedundancyGate,
+            ReproducibilityGate,
+            SolvabilityGate,
+        )
         from sepa_eval.promotion.pipeline import PromotionPipeline  # type: ignore
-        promotion_pipeline = PromotionPipeline(memory=memory, config=config)
+        gates = [
+            SolvabilityGate(),
+            ReproducibilityGate(),
+            RedundancyGate(),
+            DiscriminativePowerGate(),
+            HumanReviewGate(queue_path=os.path.join(memory_dir, "human_review_queue.jsonl")),
+        ]
+        promotion_pipeline = PromotionPipeline(gates=gates)
     except ImportError:
         logger.warning(
             "PromotionPipeline not available; promote step will be skipped."
@@ -122,16 +136,34 @@ def cmd_run(args) -> int:
     log_path = os.path.join(memory_dir, "evolution_loop_log.jsonl")
     metrics_path = os.path.join(memory_dir, "sepa_eval_metrics.json")
 
+    # Optional critics (heuristic critics are always safe to enable; semantic
+    # critic requires a reachable /judge endpoint and is enabled via config).
+    critics = {}
+    try:
+        from sepa_eval.critics.robustness_critic import RobustnessCritic
+        from sepa_eval.critics.safety_critic import SafetyCritic
+        critics["safety"] = SafetyCritic()
+        critics["robustness"] = RobustnessCritic()
+    except ImportError as exc:
+        logger.warning("Heuristic critics unavailable: %s", exc)
+    if config.get("critics", {}).get("semantic", {}).get("enabled"):
+        try:
+            from sepa_eval.critics.semantic_critic import SemanticCritic
+            critics["semantic"] = SemanticCritic(**config["critics"]["semantic"].get("kwargs", {}))
+        except ImportError as exc:
+            logger.warning("SemanticCritic unavailable: %s", exc)
+
     orchestrator = EvolutionLoopOrchestrator(
         memory=memory,
         clusterer=FailureClusterer(),
-        seed_extractor=SeedExtractor(),
+        seed_extractor=SeedExtractor(memory=memory),
         mutation_engine=mutation_engine,
         promotion_pipeline=promotion_pipeline,
         report_generator=report_generator,
         config=config,
         log_path=log_path,
         metrics_path=metrics_path,
+        critics=critics,
     )
 
     print("Running SEPA-Eval evolution cycle...")
@@ -191,10 +223,16 @@ def cmd_eval(args) -> int:
 
 def cmd_promote(args) -> int:
     memory_dir = _resolve_memory_dir(args)
-    config = _load_config(getattr(args, "config", None))
     memory = _make_memory(memory_dir)
 
     try:
+        from sepa_eval.promotion.gates import (  # type: ignore
+            DiscriminativePowerGate,
+            HumanReviewGate,
+            RedundancyGate,
+            ReproducibilityGate,
+            SolvabilityGate,
+        )
         from sepa_eval.promotion.pipeline import PromotionPipeline  # type: ignore
     except ImportError as exc:
         print(
@@ -205,32 +243,69 @@ def cmd_promote(args) -> int:
         memory.close()
         return 1
 
-    pipeline = PromotionPipeline(memory=memory, config=config)
+    gates = [
+        SolvabilityGate(),
+        ReproducibilityGate(),
+        RedundancyGate(),
+        DiscriminativePowerGate(),
+        HumanReviewGate(queue_path=os.path.join(memory_dir, "human_review_queue.jsonl")),
+    ]
+    pipeline = PromotionPipeline(gates=gates)
 
-    # Fetch all candidate tasks.
+    # Fetch all candidate tasks (full rows so gates can inspect fields).
     try:
+        from sepa_eval.memory.schema import CandidateTask
+
         cur = memory._conn.execute(
-            "SELECT task_id FROM tasks WHERE promotion_status = 'candidate'"
+            """
+            SELECT task_id, benchmark, instruction, scene_config,
+                   mutation_lineage, promotion_status, created_at
+            FROM tasks WHERE promotion_status = 'candidate'
+            """
         )
-        candidate_ids = [row[0] for row in cur.fetchall()]
+        candidates = []
+        for row in cur.fetchall():
+            # mutation_lineage column stores the mutation_type string
+            candidates.append(
+                CandidateTask(
+                    task_id=row[0],
+                    parent_task_id="",
+                    benchmark=row[1] or "",
+                    instruction=row[2] or "",
+                    scene_config=json.loads(row[3]) if row[3] else {},
+                    mutation_type=row[4] or "",
+                    mutation_params={},
+                    promotion_status=row[5] or "candidate",
+                    created_at=row[6],
+                )
+            )
     except Exception as exc:
         print(f"ERROR querying candidates: {exc}", file=sys.stderr)
         memory.close()
         return 1
 
-    if not candidate_ids:
+    if not candidates:
         print("No candidates pending promotion.")
         memory.close()
         return 0
 
-    print(f"Running promotion pipeline on {len(candidate_ids)} candidate(s)...")
-    try:
-        promoted = pipeline.run(candidate_ids)
-        print(f"Promoted: {len(promoted) if promoted else 0} tasks.")
-    except Exception as exc:
-        print(f"ERROR during promotion: {exc}", file=sys.stderr)
-        memory.close()
-        return 1
+    print(f"Running promotion pipeline on {len(candidates)} candidate(s)...")
+    counts: dict[str, int] = {}
+    for candidate in candidates:
+        try:
+            status, evidence = pipeline.run(candidate)
+        except Exception as exc:
+            print(f"ERROR promoting {candidate.task_id}: {exc}", file=sys.stderr)
+            counts["error"] = counts.get("error", 0) + 1
+            continue
+        try:
+            memory.update_task_promotion_status(candidate.task_id, status, evidence)
+        except Exception as exc:
+            print(f"WARNING: could not persist status for {candidate.task_id}: {exc}", file=sys.stderr)
+        counts[status] = counts.get(status, 0) + 1
+
+    summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "nothing to do"
+    print(f"Promotion results — {summary}")
 
     memory.close()
     return 0

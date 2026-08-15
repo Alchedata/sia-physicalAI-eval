@@ -1,22 +1,23 @@
 """
 EvalMemory: SQLite (WAL) + local msgpack file store for SEPA-Eval episode traces.
 """
+
 from __future__ import annotations
 
 import glob
 import json
 import os
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
 try:
     import msgpack
 except ImportError as exc:  # pragma: no cover
-    raise ImportError(
-        "msgpack is required for EvalMemory.  Install it with: pip install msgpack"
-    ) from exc
+    raise ImportError("msgpack is required for EvalMemory.  Install it with: pip install msgpack") from exc
 
+from . import migrations
 from .schema import (
     CandidateTask,
     EpisodeTrace,
@@ -47,6 +48,7 @@ def _dt_to_iso(dt: datetime | None) -> str | None:
 
 
 # ---------- msgpack serialisation of EpisodeTrace ---------------------------
+
 
 def _pack_trace(trace: EpisodeTrace) -> bytes:
     """Serialise an EpisodeTrace to msgpack bytes.
@@ -152,88 +154,51 @@ def _unpack_trace(data: bytes) -> EpisodeTrace:
 # ---------------------------------------------------------------------------
 # DDL
 # ---------------------------------------------------------------------------
+# The table schema and migration machinery live in ``migrations.py``
+# (PRAGMA user_version based).  Only connection-level PRAGMAs remain here.
 
-_DDL = """
+_PRAGMAS = """
 PRAGMA journal_mode=WAL;
 PRAGMA busy_timeout=5000;
-
-CREATE TABLE IF NOT EXISTS traces (
-    trace_id          TEXT PRIMARY KEY,
-    eval_run_id       TEXT,
-    benchmark         TEXT,
-    task_id           TEXT,
-    task_instruction  TEXT,
-    model_id          TEXT,
-    model_version     TEXT,
-    success           INTEGER,
-    failure_step      INTEGER,
-    episode_length    INTEGER,
-    failure_type      TEXT,
-    promotion_status  TEXT,
-    parent_task_id    TEXT,
-    mutation_type     TEXT,
-    created_at        TIMESTAMP,
-    trace_path        TEXT
-);
-
-CREATE TABLE IF NOT EXISTS tasks (
-    task_id              TEXT PRIMARY KEY,
-    benchmark            TEXT,
-    instruction          TEXT,
-    scene_config         TEXT,
-    mutation_lineage     TEXT,
-    promotion_status     TEXT,
-    discriminative_power REAL,
-    saturation_flag      INTEGER,
-    promotion_evidence   TEXT,
-    created_at           TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS critic_scores (
-    trace_id    TEXT,
-    critic_name TEXT,
-    score       REAL,
-    explanation TEXT,
-    confidence  REAL,
-    scored_at   TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS model_task_results (
-    model_id           TEXT,
-    task_id            TEXT,
-    benchmark          TEXT,
-    n_trials           INTEGER,
-    success_rate       REAL,
-    clean_success_rate REAL,
-    avg_episode_length REAL,
-    last_eval_at       TIMESTAMP,
-    PRIMARY KEY (model_id, task_id)
-);
-
-CREATE TABLE IF NOT EXISTS failure_clusters (
-    cluster_id               TEXT PRIMARY KEY,
-    eval_run_id              TEXT,
-    failure_type             TEXT,
-    centroid                 BLOB,
-    representative_trace_id  TEXT,
-    member_count             INTEGER,
-    llm_summary              TEXT,
-    summarized_at            TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS models (
-    model_id    TEXT PRIMARY KEY,
-    framework   TEXT,
-    checkpoint  TEXT,
-    benchmarks  TEXT,
-    created_at  TIMESTAMP
-);
 """
+
+
+class FsckResult(int):
+    """Integer-compatible fsck result.
+
+    ``int(result)`` equals the number of orphan ``.tmp`` files removed (legacy
+    contract).  Extra attributes carry the deep-scan report:
+
+    * ``tmp_removed``     — orphan ``.tmp`` files deleted
+    * ``broken_links``    — trace_ids whose DB row points at a missing file
+    * ``orphan_files``    — ``.msgpack`` files with no DB row
+    * ``orphans_removed`` — orphan ``.msgpack`` files deleted (repair=True only)
+    """
+
+    tmp_removed: int
+    broken_links: list[str]
+    orphan_files: list[str]
+    orphans_removed: int
+
+    def __new__(
+        cls,
+        tmp_removed: int,
+        broken_links: list[str] | None = None,
+        orphan_files: list[str] | None = None,
+        orphans_removed: int = 0,
+    ) -> "FsckResult":
+        obj = super().__new__(cls, tmp_removed)
+        obj.tmp_removed = tmp_removed
+        obj.broken_links = list(broken_links or [])
+        obj.orphan_files = list(orphan_files or [])
+        obj.orphans_removed = orphans_removed
+        return obj
 
 
 # ---------------------------------------------------------------------------
 # EvalMemory
 # ---------------------------------------------------------------------------
+
 
 class EvalMemory:
     """Persistent storage for SEPA-Eval: SQLite (WAL) + msgpack file store."""
@@ -250,29 +215,60 @@ class EvalMemory:
         self._memory_dir = memory_dir
         os.makedirs(self._memory_dir, exist_ok=True)
 
-        # Persistent connection (WAL is set at PRAGMA level, not per-statement)
+        # Persistent connection (WAL is set at PRAGMA level, not per-statement).
+        # WAL allows concurrent readers alongside one writer across *separate*
+        # connections, but a single shared ``sqlite3.Connection`` is not safe
+        # for concurrent statement execution — so all access to ``self._conn``
+        # from this instance is serialized through ``self._lock``.
+        self._lock = threading.RLock()
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
-        self._apply_ddl()
+        self._apply_pragmas()
+        with self._lock:
+            self.schema_version = migrations.migrate(self._conn, self._memory_dir)
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _apply_ddl(self) -> None:
+    def _apply_pragmas(self) -> None:
         cur = self._conn.cursor()
-        # Execute PRAGMAs and DDL statements individually so sqlite3 doesn't
-        # complain about multi-statement executescript isolation
-        for stmt in _DDL.strip().split(";"):
+        for stmt in _PRAGMAS.strip().split(";"):
             stmt = stmt.strip()
             if stmt:
                 cur.execute(stmt)
         self._conn.commit()
 
+    @staticmethod
+    def _trace_relpath(run_id: str, trace_id: str) -> str:
+        """Portable trace path relative to memory_dir (always '/'-separated)."""
+        return f"{run_id}/{trace_id}.msgpack"
+
     def _trace_path(self, run_id: str, trace_id: str) -> str:
         run_dir = os.path.join(self._memory_dir, run_id)
         os.makedirs(run_dir, exist_ok=True)
         return os.path.join(run_dir, f"{trace_id}.msgpack")
+
+    def resolve_trace_path(self, row: dict) -> str | None:
+        """Resolve the on-disk trace file for a traces row dict.
+
+        Preference order:
+          1. ``trace_relpath`` joined onto the current ``memory_dir`` (portable)
+          2. legacy absolute ``trace_path``, if that file still exists
+        Returns None if neither resolves to an existing file, falling back to
+        whichever non-empty path was stored (so callers can report it).
+        """
+        relpath = row.get("trace_relpath")
+        abspath = row.get("trace_path")
+        if relpath:
+            candidate = os.path.join(self._memory_dir, *relpath.split("/"))
+            if os.path.isfile(candidate):
+                return candidate
+        if abspath and os.path.isfile(abspath):
+            return abspath
+        if relpath:
+            return os.path.join(self._memory_dir, *relpath.split("/"))
+        return abspath or None
 
     # ------------------------------------------------------------------
     # Public API
@@ -290,6 +286,7 @@ class EvalMemory:
         run_id = trace.identity.eval_run_id
         trace_id = trace.identity.trace_id
         final_path = self._trace_path(run_id, trace_id)
+        relpath = self._trace_relpath(run_id, trace_id)
         tmp_path = final_path + ".tmp"
 
         # -- Step 1: write to .tmp
@@ -318,6 +315,7 @@ class EvalMemory:
             trace.provenance.mutation_type,
             _now_iso(),
             final_path,
+            relpath,
         )
         try:
             self._insert_trace_row(params)
@@ -331,18 +329,19 @@ class EvalMemory:
 
     def _insert_trace_row(self, params: tuple) -> None:
         """Execute the traces INSERT and commit. Extracted for testability."""
-        self._conn.execute(
-            """
-            INSERT OR REPLACE INTO traces (
-                trace_id, eval_run_id, benchmark, task_id, task_instruction,
-                model_id, model_version, success, failure_step, episode_length,
-                failure_type, promotion_status, parent_task_id, mutation_type,
-                created_at, trace_path
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """,
-            params,
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT OR REPLACE INTO traces (
+                    trace_id, eval_run_id, benchmark, task_id, task_instruction,
+                    model_id, model_version, success, failure_step, episode_length,
+                    failure_type, promotion_status, parent_task_id, mutation_type,
+                    created_at, trace_path, trace_relpath
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+                params,
+            )
+            self._conn.commit()
 
     def get_failures(
         self,
@@ -372,42 +371,51 @@ class EvalMemory:
         where = " AND ".join(clauses)
         params.append(limit)
 
-        cur = self._conn.execute(
-            f"SELECT * FROM traces WHERE {where} ORDER BY created_at DESC LIMIT ?",
-            params,
-        )
-        return [dict(row) for row in cur.fetchall()]
+        with self._lock:
+            cur = self._conn.execute(
+                f"SELECT * FROM traces WHERE {where} ORDER BY created_at DESC LIMIT ?",
+                params,
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def load_trace_file(self, trace_path: str) -> EpisodeTrace:
-        """Deserialise a msgpack file back to an EpisodeTrace."""
+        """Deserialise a msgpack file back to an EpisodeTrace.
+
+        ``trace_path`` may be absolute (legacy) or relative to ``memory_dir``
+        (portable ``trace_relpath`` form).
+        """
+        if not os.path.isabs(trace_path):
+            trace_path = os.path.join(self._memory_dir, *trace_path.replace(os.sep, "/").split("/"))
         with open(trace_path, "rb") as fh:
             data = fh.read()
         return _unpack_trace(data)
 
     def get_saturated_tasks(self, threshold: float = 0.95) -> list[dict]:
         """Return tasks where all models succeed ≥ threshold (or saturation_flag set)."""
-        cur = self._conn.execute(
-            """
-            SELECT * FROM tasks
-            WHERE saturation_flag = 1
-               OR discriminative_power <= ?
-            ORDER BY discriminative_power ASC
-            """,
-            (1.0 - threshold,),
-        )
-        return [dict(row) for row in cur.fetchall()]
+        with self._lock:
+            cur = self._conn.execute(
+                """
+                SELECT * FROM tasks
+                WHERE saturation_flag = 1
+                   OR discriminative_power <= ?
+                ORDER BY discriminative_power ASC
+                """,
+                (1.0 - threshold,),
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def get_discriminative_tasks(self, min_spread: float = 0.2) -> list[dict]:
         """Return tasks with discriminative_power >= min_spread."""
-        cur = self._conn.execute(
-            """
-            SELECT * FROM tasks
-            WHERE discriminative_power >= ?
-            ORDER BY discriminative_power DESC
-            """,
-            (min_spread,),
-        )
-        return [dict(row) for row in cur.fetchall()]
+        with self._lock:
+            cur = self._conn.execute(
+                """
+                SELECT * FROM tasks
+                WHERE discriminative_power >= ?
+                ORDER BY discriminative_power DESC
+                """,
+                (min_spread,),
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def update_critic_score(
         self,
@@ -417,46 +425,54 @@ class EvalMemory:
         explanation: str = "",
         confidence: float = 1.0,
     ) -> None:
-        """Upsert a critic score row. Raises ValueError if trace_id is unknown."""
-        row = self._conn.execute(
-            "SELECT 1 FROM traces WHERE trace_id = ?", (trace_id,)
-        ).fetchone()
-        if row is None:
-            raise ValueError(f"trace_id not found: {trace_id!r}")
+        """Upsert a critic score row (unique per (trace_id, critic_name)).
 
-        self._conn.execute(
-            """
-            INSERT INTO critic_scores (trace_id, critic_name, score, explanation, confidence, scored_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (trace_id, critic_name, score, explanation, confidence, _now_iso()),
-        )
-        self._conn.commit()
+        Raises ValueError if trace_id is unknown.
+        """
+        with self._lock:
+            row = self._conn.execute("SELECT 1 FROM traces WHERE trace_id = ?", (trace_id,)).fetchone()
+            if row is None:
+                raise ValueError(f"trace_id not found: {trace_id!r}")
+
+            self._conn.execute(
+                """
+                INSERT INTO critic_scores (trace_id, critic_name, score, explanation, confidence, scored_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(trace_id, critic_name) DO UPDATE SET
+                    score = excluded.score,
+                    explanation = excluded.explanation,
+                    confidence = excluded.confidence,
+                    scored_at = excluded.scored_at
+                """,
+                (trace_id, critic_name, score, explanation, confidence, _now_iso()),
+            )
+            self._conn.commit()
 
     def record_candidate_task(self, task: CandidateTask) -> None:
         """Insert or replace a CandidateTask into the tasks table."""
-        self._conn.execute(
-            """
-            INSERT OR REPLACE INTO tasks (
-                task_id, benchmark, instruction, scene_config,
-                mutation_lineage, promotion_status, discriminative_power,
-                saturation_flag, promotion_evidence, created_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?)
-            """,
-            (
-                task.task_id,
-                task.benchmark,
-                task.instruction,
-                json.dumps(task.scene_config),
-                task.mutation_type,
-                task.promotion_status,
-                None,   # discriminative_power not yet computed
-                0,      # saturation_flag default false
-                json.dumps(task.promotion_evidence) if task.promotion_evidence else None,
-                _dt_to_iso(task.created_at),
-            ),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT OR REPLACE INTO tasks (
+                    task_id, benchmark, instruction, scene_config,
+                    mutation_lineage, promotion_status, discriminative_power,
+                    saturation_flag, promotion_evidence, created_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    task.task_id,
+                    task.benchmark,
+                    task.instruction,
+                    json.dumps(task.scene_config),
+                    task.mutation_type,
+                    task.promotion_status,
+                    None,  # discriminative_power not yet computed
+                    0,  # saturation_flag default false
+                    json.dumps(task.promotion_evidence) if task.promotion_evidence else None,
+                    _dt_to_iso(task.created_at),
+                ),
+            )
+            self._conn.commit()
 
     def update_task_promotion_status(
         self,
@@ -465,20 +481,21 @@ class EvalMemory:
         evidence: dict | None = None,
     ) -> None:
         """Update the promotion_status (and optionally evidence) for a task."""
-        self._conn.execute(
-            """
-            UPDATE tasks
-            SET promotion_status = ?,
-                promotion_evidence = COALESCE(?, promotion_evidence)
-            WHERE task_id = ?
-            """,
-            (
-                status,
-                json.dumps(evidence) if evidence is not None else None,
-                task_id,
-            ),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                UPDATE tasks
+                SET promotion_status = ?,
+                    promotion_evidence = COALESCE(?, promotion_evidence)
+                WHERE task_id = ?
+                """,
+                (
+                    status,
+                    json.dumps(evidence) if evidence is not None else None,
+                    task_id,
+                ),
+            )
+            self._conn.commit()
 
     def register_model(
         self,
@@ -488,42 +505,44 @@ class EvalMemory:
         benchmarks: list[str],
     ) -> None:
         """Insert or replace a model registration record."""
-        self._conn.execute(
-            """
-            INSERT OR REPLACE INTO models (model_id, framework, checkpoint, benchmarks, created_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (model_id, framework, checkpoint, json.dumps(benchmarks), _now_iso()),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT OR REPLACE INTO models (model_id, framework, checkpoint, benchmarks, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (model_id, framework, checkpoint, json.dumps(benchmarks), _now_iso()),
+            )
+            self._conn.commit()
 
     def get_failures_by_cluster_window(self, last_n_runs: int = 5) -> list[dict]:
         """Return failed traces from the most recent `last_n_runs` distinct eval_run_ids."""
         # Identify the N most recent distinct eval_run_ids
-        recent_cur = self._conn.execute(
-            """
-            SELECT DISTINCT eval_run_id
-            FROM traces
-            ORDER BY created_at DESC
-            LIMIT ?
-            """,
-            (last_n_runs,),
-        )
-        recent_run_ids = [row[0] for row in recent_cur.fetchall()]
-        if not recent_run_ids:
-            return []
+        with self._lock:
+            recent_cur = self._conn.execute(
+                """
+                SELECT DISTINCT eval_run_id
+                FROM traces
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (last_n_runs,),
+            )
+            recent_run_ids = [row[0] for row in recent_cur.fetchall()]
+            if not recent_run_ids:
+                return []
 
-        placeholders = ",".join("?" * len(recent_run_ids))
-        cur = self._conn.execute(
-            f"""
-            SELECT * FROM traces
-            WHERE success = 0
-              AND eval_run_id IN ({placeholders})
-            ORDER BY created_at DESC
-            """,
-            recent_run_ids,
-        )
-        return [dict(row) for row in cur.fetchall()]
+            placeholders = ",".join("?" * len(recent_run_ids))
+            cur = self._conn.execute(
+                f"""
+                SELECT * FROM traces
+                WHERE success = 0
+                  AND eval_run_id IN ({placeholders})
+                ORDER BY created_at DESC
+                """,
+                recent_run_ids,
+            )
+            return [dict(row) for row in cur.fetchall()]
 
     def prune(self, retention_days: int = 90) -> int:
         """Delete trace files older than retention_days. DB rows are kept.
@@ -532,22 +551,19 @@ class EvalMemory:
         """
         from datetime import timedelta
 
-        cutoff = (
-            datetime.now(tz=timezone.utc)
-            .replace(tzinfo=None)
-            - timedelta(days=retention_days)
-        )
+        cutoff = datetime.now(tz=timezone.utc).replace(tzinfo=None) - timedelta(days=retention_days)
         cutoff_str = cutoff.strftime(_ISO_FMT)
 
-        cur = self._conn.execute(
-            "SELECT trace_id, trace_path FROM traces WHERE created_at < ?",
-            (cutoff_str,),
-        )
-        rows = cur.fetchall()
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT trace_id, trace_path, trace_relpath FROM traces WHERE created_at < ?",
+                (cutoff_str,),
+            )
+            rows = [dict(row) for row in cur.fetchall()]
 
         deleted = 0
         for row in rows:
-            trace_path = row["trace_path"] if isinstance(row, sqlite3.Row) else row[1]
+            trace_path = self.resolve_trace_path(row)
             if trace_path and os.path.isfile(trace_path):
                 try:
                     os.remove(trace_path)
@@ -557,23 +573,97 @@ class EvalMemory:
 
         return deleted
 
-    def fsck(self) -> int:
-        """Scan memory_dir for orphan *.tmp files and delete them.
+    def fsck(self, repair: bool = False) -> FsckResult:
+        """Consistency check between the DB and the msgpack file store.
 
-        Returns the number of files removed.
+        Always removes orphan ``*.tmp`` files (interrupted writes).  Also
+        reports:
+
+        * broken links — DB rows whose trace file is missing on disk
+        * orphan files — committed ``.msgpack`` files with no DB row
+
+        Orphan ``.msgpack`` files are only *deleted* when ``repair=True``;
+        by default they are just reported.  Broken links are never auto-fixed.
+
+        Returns an :class:`FsckResult`; ``int(result)`` equals the number of
+        ``.tmp`` files removed (backward-compatible with the old contract).
         """
+        # -- 1. orphan .tmp files (always removed)
         pattern = os.path.join(self._memory_dir, "**", "*.tmp")
         orphans = glob.glob(pattern, recursive=True)
         # Also check top-level (glob ** may not match root in all Python versions)
         top_level = glob.glob(os.path.join(self._memory_dir, "*.tmp"))
-        all_orphans = list(set(orphans) | set(top_level))
-        for path in all_orphans:
+        all_tmp = list(set(orphans) | set(top_level))
+        for path in all_tmp:
             try:
                 os.remove(path)
             except OSError:
                 pass
-        return len(all_orphans)
+
+        # -- 2. broken links: DB rows whose file is missing
+        with self._lock:
+            cur = self._conn.execute("SELECT trace_id, trace_path, trace_relpath FROM traces")
+            rows = [dict(row) for row in cur.fetchall()]
+
+        broken_links: list[str] = []
+        referenced: set[str] = set()
+        for row in rows:
+            resolved = self.resolve_trace_path(row)
+            if resolved:
+                referenced.add(os.path.abspath(resolved))
+            if not resolved or not os.path.isfile(resolved):
+                broken_links.append(row["trace_id"])
+
+        # -- 3. orphan .msgpack files: on disk but not referenced by any row
+        disk_files = set(glob.glob(os.path.join(self._memory_dir, "**", "*.msgpack"), recursive=True)) | set(
+            glob.glob(os.path.join(self._memory_dir, "*.msgpack"))
+        )
+        orphan_files = sorted(path for path in disk_files if os.path.abspath(path) not in referenced)
+
+        orphans_removed = 0
+        if repair:
+            for path in orphan_files:
+                try:
+                    os.remove(path)
+                    orphans_removed += 1
+                except OSError:
+                    pass
+
+        return FsckResult(
+            tmp_removed=len(all_tmp),
+            broken_links=broken_links,
+            orphan_files=orphan_files,
+            orphans_removed=orphans_removed,
+        )
+
+    # ------------------------------------------------------------------
+    # Read-only query API (used by reporting/CLI — do not reach into _conn)
+    # ------------------------------------------------------------------
+
+    _READONLY_PREFIXES = ("select", "with", "pragma", "explain")
+
+    def query(self, sql: str, params: tuple | list = ()) -> list[dict]:
+        """Execute a read-only SQL statement and return rows as dicts.
+
+        Only SELECT/WITH/PRAGMA/EXPLAIN statements are allowed; anything else
+        raises ValueError. Serialized through the internal lock.
+        """
+        head = sql.lstrip().split(None, 1)[0].lower() if sql.strip() else ""
+        if head not in self._READONLY_PREFIXES:
+            raise ValueError(f"query() only accepts read-only statements, got: {head!r}")
+        with self._lock:
+            cur = self._conn.execute(sql, tuple(params))
+            return [dict(row) for row in cur.fetchall()]
+
+    def query_scalar(self, sql: str, params: tuple | list = (), default=None):
+        """Read-only helper returning the first column of the first row."""
+        rows = self.query(sql, params)
+        if not rows:
+            return default
+        first = rows[0]
+        return next(iter(first.values()), default)
 
     def close(self) -> None:
         """Close the underlying SQLite connection."""
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
