@@ -8,6 +8,12 @@ models:
       - libero_goal
       - libero_100
 
+  - model_id: qwen_oft_spatial_headonly
+    framework: qwen_oft
+    checkpoint: /Users/fei/Code/Alchedata/sea-physicalAI-eval/checkpoints/qwenoft_spatial_headonly
+    benchmarks:
+      - libero_spatial
+
   # Add more model entries below as new checkpoints are registered.
   # Fields:
   #   model_id   (required) — unique identifier used across the DB and reports

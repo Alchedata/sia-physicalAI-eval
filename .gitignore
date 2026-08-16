@@ -265,3 +265,4 @@ AlphaBrain.egg-info
 eval_memory_real/
 lerobot_data/
 pretrained_models/
+/checkpoints/
