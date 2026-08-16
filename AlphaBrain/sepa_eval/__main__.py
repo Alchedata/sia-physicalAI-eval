@@ -17,6 +17,7 @@ Commands:
     review approve  Approve a candidate task by task_id.
     status          Show EvalMemory stats.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,6 +37,7 @@ logger = logging.getLogger("sepa_eval")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _resolve_memory_dir(args) -> str:
     """Return memory dir from --memory-dir arg or SEPA_MEMORY_DIR env var."""
@@ -62,6 +64,7 @@ def _load_config(config_path: str | None) -> dict:
         return {}
     try:
         import yaml  # type: ignore
+
         with open(config_path, "r", encoding="utf-8") as fh:
             return yaml.safe_load(fh) or {}
     except ImportError:
@@ -72,9 +75,65 @@ def _load_config(config_path: str | None) -> dict:
         return {}
 
 
+def _build_real_eval(args) -> tuple:
+    """
+    Build (eval_fn, model_ids) from --real-eval / --policy / --models CLI options.
+
+    Returns (None, None) when --real-eval is not set (default behaviour unchanged).
+    """
+    real_eval = getattr(args, "real_eval", None)
+    if not real_eval:
+        return None, None
+    if real_eval != "libero":
+        raise SystemExit(f"Unsupported --real-eval backend '{real_eval}' (only 'libero').")
+
+    try:
+        from sepa_eval.evalfn import make_libero_eval_fn, resolve_policy_fn
+    except ImportError as exc:
+        print(f"ERROR: sepa_eval.evalfn unavailable: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+
+    policy_spec = getattr(args, "policy", None) or "random"
+    try:
+        policy_fn, default_model_id = resolve_policy_fn(policy_spec)
+    except (RuntimeError, ValueError) as exc:
+        print(f"ERROR: could not build policy '{policy_spec}': {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+
+    eval_fn = make_libero_eval_fn(
+        policy_fn,
+        max_steps=int(getattr(args, "max_steps", None) or 60),
+    )
+    models_arg = getattr(args, "models", None)
+    model_ids = [m.strip() for m in models_arg.split(",") if m.strip()] if models_arg else [default_model_id]
+    logger.info("Real eval enabled: backend=libero policy=%s models=%s", policy_spec, model_ids)
+    return eval_fn, model_ids
+
+
+def _make_gates(memory_dir: str, gate_trials: int | None = None) -> list:
+    """Instantiate the five promotion gates, optionally overriding eval-trial counts."""
+    from sepa_eval.promotion.gates import (  # type: ignore
+        DiscriminativePowerGate,
+        HumanReviewGate,
+        RedundancyGate,
+        ReproducibilityGate,
+        SolvabilityGate,
+    )
+
+    trial_kwargs = {"n_trials": gate_trials} if gate_trials else {}
+    return [
+        SolvabilityGate(**trial_kwargs),
+        ReproducibilityGate(**trial_kwargs),
+        RedundancyGate(),
+        DiscriminativePowerGate(**trial_kwargs),
+        HumanReviewGate(queue_path=os.path.join(memory_dir, "human_review_queue.jsonl")),
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Command: run
 # ---------------------------------------------------------------------------
+
 
 def cmd_run(args) -> int:
     memory_dir = _resolve_memory_dir(args)
@@ -98,6 +157,7 @@ def cmd_run(args) -> int:
         from sepa_eval.mutation.instruction_paraphrase import InstructionParaphrase
         from sepa_eval.mutation.material_swap import MaterialSwap
         from sepa_eval.mutation.pose_perturbation import PosePerturbation
+
         mutation_engine = [
             PosePerturbation(),
             DistractorAdd(),
@@ -110,26 +170,22 @@ def cmd_run(args) -> int:
     # Optional promotion pipeline
     promotion_pipeline = None
     try:
-        from sepa_eval.promotion.gates import (  # type: ignore
-            DiscriminativePowerGate,
-            HumanReviewGate,
-            RedundancyGate,
-            ReproducibilityGate,
-            SolvabilityGate,
-        )
         from sepa_eval.promotion.pipeline import PromotionPipeline  # type: ignore
-        gates = [
-            SolvabilityGate(),
-            ReproducibilityGate(),
-            RedundancyGate(),
-            DiscriminativePowerGate(),
-            HumanReviewGate(queue_path=os.path.join(memory_dir, "human_review_queue.jsonl")),
-        ]
+
+        gates = _make_gates(memory_dir, gate_trials=getattr(args, "gate_trials", None))
         promotion_pipeline = PromotionPipeline(gates=gates)
     except ImportError:
-        logger.warning(
-            "PromotionPipeline not available; promote step will be skipped."
-        )
+        logger.warning("PromotionPipeline not available; promote step will be skipped.")
+
+    eval_fn, model_ids = _build_real_eval(args)
+    if eval_fn is not None:
+        # RedundancyGate needs promoted_embeddings; supply an empty default so
+        # the real-eval path can reach all gates (tasks table stores no embeddings).
+        config.setdefault("gate_kwargs", {}).setdefault("promoted_embeddings", [])
+        if promotion_pipeline is not None:
+            # Main-thread gate execution: glfw offscreen rendering on macOS
+            # crashes (SIGTRAP) when envs are created/stepped from worker threads.
+            promotion_pipeline.run_inline = True
 
     report_generator = ReportGenerator(memory=memory)
 
@@ -142,6 +198,7 @@ def cmd_run(args) -> int:
     try:
         from sepa_eval.critics.robustness_critic import RobustnessCritic
         from sepa_eval.critics.safety_critic import SafetyCritic
+
         critics["safety"] = SafetyCritic()
         critics["robustness"] = RobustnessCritic()
     except ImportError as exc:
@@ -149,6 +206,7 @@ def cmd_run(args) -> int:
     if config.get("critics", {}).get("semantic", {}).get("enabled"):
         try:
             from sepa_eval.critics.semantic_critic import SemanticCritic
+
             critics["semantic"] = SemanticCritic(**config["critics"]["semantic"].get("kwargs", {}))
         except ImportError as exc:
             logger.warning("SemanticCritic unavailable: %s", exc)
@@ -167,12 +225,14 @@ def cmd_run(args) -> int:
     )
 
     print("Running SEPA-Eval evolution cycle...")
-    result = orchestrator.run_cycle()
+    result = orchestrator.run_cycle(eval_fn=eval_fn, model_ids=model_ids)
 
     print(f"\nCycle ID      : {result.cycle_id}")
     print(f"Steps         : {', '.join(result.steps_completed)}")
     print(f"Candidates    : {result.candidates_generated} generated, {result.candidates_promoted} promoted")
     print(f"Saturated tasks: {result.tasks_saturated}")
+    if eval_fn is not None and hasattr(eval_fn, "close"):
+        eval_fn.close()
     if result.error:
         print(f"ERROR         : {result.error}", file=sys.stderr)
         return 1
@@ -184,6 +244,7 @@ def cmd_run(args) -> int:
 # ---------------------------------------------------------------------------
 # Command: eval
 # ---------------------------------------------------------------------------
+
 
 def cmd_eval(args) -> int:
     memory_dir = _resolve_memory_dir(args)
@@ -221,47 +282,50 @@ def cmd_eval(args) -> int:
 # Command: promote
 # ---------------------------------------------------------------------------
 
+
 def cmd_promote(args) -> int:
     memory_dir = _resolve_memory_dir(args)
     memory = _make_memory(memory_dir)
 
     try:
-        from sepa_eval.promotion.gates import (  # type: ignore
-            DiscriminativePowerGate,
-            HumanReviewGate,
-            RedundancyGate,
-            ReproducibilityGate,
-            SolvabilityGate,
-        )
         from sepa_eval.promotion.pipeline import PromotionPipeline  # type: ignore
+
+        gates = _make_gates(memory_dir, gate_trials=getattr(args, "gate_trials", None))
     except ImportError as exc:
         print(
-            f"ERROR: PromotionPipeline not available: {exc}\n"
-            "Install optional promotion dependencies.",
+            f"ERROR: PromotionPipeline not available: {exc}\n" "Install optional promotion dependencies.",
             file=sys.stderr,
         )
         memory.close()
         return 1
 
-    gates = [
-        SolvabilityGate(),
-        ReproducibilityGate(),
-        RedundancyGate(),
-        DiscriminativePowerGate(),
-        HumanReviewGate(queue_path=os.path.join(memory_dir, "human_review_queue.jsonl")),
-    ]
-    pipeline = PromotionPipeline(gates=gates)
+    # Optional real-simulator eval_fn (--real-eval / --policy).
+    eval_fn, model_ids = _build_real_eval(args)
+
+    # run_inline: main-thread gate execution — glfw offscreen rendering on macOS
+    # crashes (SIGTRAP) when the env is created/stepped from a worker thread.
+    pipeline = PromotionPipeline(gates=gates, run_inline=eval_fn is not None)
+    gate_kwargs: dict = {}
+    if eval_fn is not None:
+        gate_kwargs["eval_fn"] = eval_fn
+        gate_kwargs["model_ids"] = model_ids
+        # tasks table stores no embeddings; empty list makes RedundancyGate pass.
+        gate_kwargs["promoted_embeddings"] = []
+
+    statuses = [s.strip() for s in (getattr(args, "status", None) or "candidate").split(",") if s.strip()]
 
     # Fetch all candidate tasks (full rows so gates can inspect fields).
     try:
         from sepa_eval.memory.schema import CandidateTask
 
+        placeholders = ",".join("?" for _ in statuses)
         cur = memory._conn.execute(
-            """
+            f"""
             SELECT task_id, benchmark, instruction, scene_config,
                    mutation_lineage, promotion_status, created_at
-            FROM tasks WHERE promotion_status = 'candidate'
-            """
+            FROM tasks WHERE promotion_status IN ({placeholders})
+            """,
+            statuses,
         )
         candidates = []
         for row in cur.fetchall():
@@ -285,7 +349,7 @@ def cmd_promote(args) -> int:
         return 1
 
     if not candidates:
-        print("No candidates pending promotion.")
+        print(f"No candidates pending promotion (status filter: {', '.join(statuses)}).")
         memory.close()
         return 0
 
@@ -293,7 +357,7 @@ def cmd_promote(args) -> int:
     counts: dict[str, int] = {}
     for candidate in candidates:
         try:
-            status, evidence = pipeline.run(candidate)
+            status, evidence = pipeline.run(candidate, **gate_kwargs)
         except Exception as exc:
             print(f"ERROR promoting {candidate.task_id}: {exc}", file=sys.stderr)
             counts["error"] = counts.get("error", 0) + 1
@@ -307,6 +371,8 @@ def cmd_promote(args) -> int:
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "nothing to do"
     print(f"Promotion results — {summary}")
 
+    if eval_fn is not None and hasattr(eval_fn, "close"):
+        eval_fn.close()
     memory.close()
     return 0
 
@@ -314,6 +380,7 @@ def cmd_promote(args) -> int:
 # ---------------------------------------------------------------------------
 # Command: report
 # ---------------------------------------------------------------------------
+
 
 def cmd_report(args) -> int:
     memory_dir = _resolve_memory_dir(args)
@@ -339,6 +406,7 @@ def cmd_report(args) -> int:
 # ---------------------------------------------------------------------------
 # Command: export-hard-cases
 # ---------------------------------------------------------------------------
+
 
 def cmd_export_hard_cases(args) -> int:
     memory_dir = _resolve_memory_dir(args)
@@ -367,6 +435,7 @@ def cmd_export_hard_cases(args) -> int:
 # ---------------------------------------------------------------------------
 # Command: review list
 # ---------------------------------------------------------------------------
+
 
 def cmd_review_list(args) -> int:
     memory_dir = _resolve_memory_dir(args)
@@ -410,6 +479,7 @@ def cmd_review_list(args) -> int:
 # Command: review approve
 # ---------------------------------------------------------------------------
 
+
 def cmd_review_approve(args) -> int:
     memory_dir = _resolve_memory_dir(args)
     memory = _make_memory(memory_dir)
@@ -435,6 +505,7 @@ def cmd_review_approve(args) -> int:
 # Command: status
 # ---------------------------------------------------------------------------
 
+
 def cmd_status(args) -> int:
     memory_dir = _resolve_memory_dir(args)
     memory = _make_memory(memory_dir)
@@ -452,9 +523,7 @@ def cmd_status(args) -> int:
             stats[label] = cur.fetchone()[0]
 
         for status in ("seed", "candidate", "promoted", "rejected", "archived"):
-            cur = memory._conn.execute(
-                "SELECT COUNT(*) FROM tasks WHERE promotion_status = ?", (status,)
-            )
+            cur = memory._conn.execute("SELECT COUNT(*) FROM tasks WHERE promotion_status = ?", (status,))
             stats[f"tasks_{status}"] = cur.fetchone()[0]
 
         cur = memory._conn.execute("SELECT COUNT(*) FROM traces WHERE success = 0")
@@ -495,6 +564,7 @@ def cmd_status(args) -> int:
 # ---------------------------------------------------------------------------
 # CI-check helper (used by cmd_eval --ci-mode and cmd_ci_check)
 # ---------------------------------------------------------------------------
+
 
 def _ci_check(memory, model_id: str | None = None) -> int:
     """
@@ -538,10 +608,7 @@ def _ci_check(memory, model_id: str | None = None) -> int:
                     latest_sr = float(entries[0]["success_rate"] or 0)
                     prev_sr = float(entries[1]["success_rate"] or 0)
                     if latest_sr < prev_sr - 0.05:
-                        issues.append(
-                            f"Regression on task '{task_id}': "
-                            f"SR {prev_sr:.2f} → {latest_sr:.2f}"
-                        )
+                        issues.append(f"Regression on task '{task_id}': " f"SR {prev_sr:.2f} → {latest_sr:.2f}")
         except Exception as exc:
             logger.warning("CI check: could not query model_task_results: %s", exc)
 
@@ -558,6 +625,7 @@ def _ci_check(memory, model_id: str | None = None) -> int:
 # ---------------------------------------------------------------------------
 # Command: diff
 # ---------------------------------------------------------------------------
+
 
 def cmd_diff(args) -> int:
     """Compare per-task success rate between two model checkpoints."""
@@ -643,6 +711,7 @@ def cmd_diff(args) -> int:
 # Command: sync-models
 # ---------------------------------------------------------------------------
 
+
 def cmd_sync_models(args) -> int:
     """Sync models.yaml into EvalMemory DB."""
     memory_dir = _resolve_memory_dir(args)
@@ -678,6 +747,7 @@ def cmd_sync_models(args) -> int:
 # Command: prune
 # ---------------------------------------------------------------------------
 
+
 def cmd_prune(args) -> int:
     """Delete trace files older than retention_days. DB rows are kept."""
     memory_dir = _resolve_memory_dir(args)
@@ -695,6 +765,46 @@ def cmd_prune(args) -> int:
 # Argument parser
 # ---------------------------------------------------------------------------
 
+
+def _add_real_eval_args(p: argparse.ArgumentParser) -> None:
+    """Options shared by `run` and `promote` for real-simulator gate evaluation."""
+    p.add_argument(
+        "--real-eval",
+        dest="real_eval",
+        choices=["libero"],
+        default=None,
+        help="Evaluate promotion gates in a real simulator (currently: libero).",
+    )
+    p.add_argument(
+        "--policy",
+        default="random",
+        metavar="SPEC",
+        help="Policy for real eval: 'random' (default), 'model[:base_vlm_path]' or 'ws:<uri>'.",
+    )
+    p.add_argument(
+        "--models",
+        default=None,
+        metavar="IDS",
+        help="Comma-separated model ids to report gate SR under (default: policy-derived id).",
+    )
+    p.add_argument(
+        "--gate-trials",
+        dest="gate_trials",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Override n_trials for Solvability/Reproducibility/DiscriminativePower gates.",
+    )
+    p.add_argument(
+        "--max-steps",
+        dest="max_steps",
+        type=int,
+        default=60,
+        metavar="N",
+        help="Max env steps per real-eval episode (default: 60).",
+    )
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sepa_eval",
@@ -711,6 +821,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # -- run ------------------------------------------------------------------
     p_run = sub.add_parser("run", help="Run the full 6-step evolution cycle.")
     p_run.add_argument("--config", metavar="PATH", help="Path to orchestrator.yaml")
+    _add_real_eval_args(p_run)
     p_run.set_defaults(func=cmd_run)
 
     # -- eval -----------------------------------------------------------------
@@ -731,6 +842,14 @@ def _build_parser() -> argparse.ArgumentParser:
     # -- promote --------------------------------------------------------------
     p_promote = sub.add_parser("promote", help="Run promotion pipeline only.")
     p_promote.add_argument("--config", metavar="PATH")
+    p_promote.add_argument(
+        "--status",
+        default="candidate",
+        metavar="LIST",
+        help="Comma-separated promotion_status values to re-run (default: candidate). "
+        "Use 'candidate,deferred' to retry deferred tasks.",
+    )
+    _add_real_eval_args(p_promote)
     p_promote.set_defaults(func=cmd_promote)
 
     # -- report ---------------------------------------------------------------
@@ -814,6 +933,7 @@ def _build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()

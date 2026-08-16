@@ -162,9 +162,68 @@ cd AlphaBrain && SEPA_MEMORY_DIR=$PWD/../eval_memory_real MPLBACKEND=Agg \
 
 脚本副本建议: /tmp/{libero_render_test,collect_real_traces,replay_demo,qwenoft_test}.py (临时目录, 重启会丢; 如需长期保留可拷入 docs_analysis/scripts/)。
 
+## 阶段 E: 闭环 promote (真实 eval_fn 注入 promotion gates)
+
+日期: 2026-08-15 (续)。此前 D2 的 15 个 candidate 因 CLI 未装配 `eval_fn` 全部 deferred (坑 #8), 现已修复并真实闭环。
+
+### 新增代码
+
+- **`sepa_eval/evalfn/`** 新模块:
+  - `make_libero_eval_fn(policy_fn, max_steps=60, env_factory=None, ...)` → 返回满足 gate 契约
+    `eval_fn(candidate, model_id, n_trials) -> SR` 的可调用 (同时兼容 orchestrator EVALUATE 步的
+    `eval_fn(model_id=..., n_trials=...)` 关键字调用, candidate=None 时评估基础任务)。
+    每 trial: env.reset → set_init_state(第 trial 个真实 init state) → `replay_scene_config` 应用
+    mutated scene_config (空则跳过; DistractorAdd 降级为 pose-only, 记录 warning) → settle 5 步 →
+    policy_fn rollout ≤ max_steps 步, done=成功。env 按 (benchmark, instruction) 缓存;
+    `eval_fn.close()` 清理。LIBERO 未安装时 import 不崩、调用时清晰 RuntimeError。
+  - `policies.py`: policy_fn 契约 `(obs, instruction, model_id) -> action`, 三种实现 —
+    `make_random_policy_fn` (随机, 快速基线) / `make_qwenoft_policy_fn` (进程内 Qwenvl_OFT,
+    attn=eager, 懒 import torch/AlphaBrain) / `make_ws_policy_fn` (简单 JSON WebSocket 客户端)。
+    `resolve_policy_fn("random"|"model[:path]"|"ws:<uri>")` 供 CLI 解析。
+- **CLI (`sepa_eval/__main__.py`)**: `run` 与 `promote` 新增
+  `--real-eval libero --policy SPEC --models IDS --gate-trials N --max-steps N`;
+  `promote` 另增 `--status candidate,deferred` (默认仍只跑 candidate, 默认行为完全不变)。
+  启用 real-eval 时把 `eval_fn`/`model_ids`/`promoted_embeddings=[]` 作为 gate_kwargs 传入
+  pipeline / `run_cycle`。
+- **`PromotionPipeline(run_inline=True)`**: 新增同步执行模式。原因见坑 #9。
+- 单测 `sepa_eval/tests/test_evalfn.py` (fake env/policy, 无 LIBERO 依赖): eval_fn 契约、
+  scene_config 回放、env 缓存、无 LIBERO 报错、SolvabilityGate 对接、CLI 装配路径与默认行为回归。
+  基线: `155 passed, 1 skipped`。
+
+### 真实验证 (random policy, 15 个 deferred candidate 重判)
+
+```bash
+cd AlphaBrain && export SEPA_MEMORY_DIR=$PWD/../eval_memory_real
+MPLBACKEND=Agg MUJOCO_GL=glfw /opt/anaconda3/envs/alphabrain/bin/python -m sepa_eval promote \
+  --status deferred --real-eval libero --policy random --gate-trials 3 --max-steps 60
+```
+
+结果 (真实 LIBERO 模拟, 45 个 episode, 耗时 2m03s):
+
+```
+eval_fn: task='770ca712-...' model=random-policy trials=3 SR=0.000 (mutated=False)
+Gate SolvabilityGate DISCARDED task 770ca712-...: No model reached SR >= 0.5. ...
+...(15 个 candidate 同判)...
+Promotion results — rejected: 15
+```
+
+DB status 分布: **deferred 15 → rejected 15**, `promotion_evidence` 逐 gate 落库
+(如 `{"SolvabilityGate": {"model_sr": {"random-policy": 0.0}, "best_sr": 0.0}}`)。
+random policy SR=0 → SolvabilityGate DISCARD → rejected, 正是预期的闭环行为
+(无模型能解的 mutation 不应进入 benchmark)。DistractorAdd 候选按设计降级为
+pose-only 回放并记录 warning。用 `--policy model` 换成真实 QwenOFT (或未来微调
+checkpoint) 即可得到有判别力的 SR 分布。
+
+### 新增坑
+
+9. **macOS glfw 离屏渲染必须在主线程**: PromotionPipeline 默认在 ThreadPoolExecutor
+   工作线程里跑 gate → OffScreenRenderEnv 在 worker thread 创建时 SIGTRAP
+   (`Trace/BPT trap: 5`)。解决: `PromotionPipeline(run_inline=True)` 同步执行模式,
+   CLI 在 `--real-eval` 启用时自动打开 (代价: 无 per-gate 超时; 默认线程池行为不变)。
+
 ## 后续建议
 
 - 微调一个真正的 QwenOFT checkpoint (或下载社区 OFT 权重) 替换随机 action head → success/failure 分布才有判别力。
-- 给 `python -m sepa_eval run` 的 PromotionPipeline 注入真实 `eval_fn` (复用 D1 的 policy_fn + env), 打通 promote。
+- ~~给 PromotionPipeline 注入真实 `eval_fn` 打通 promote~~ → **已完成** (阶段 E, `--real-eval libero`)。
 - 补下 LeRobot libero 数据集修复 lerobot_data/ 悬空链接 (训练用)。
 - `pip install openai` + 配 key 可启用 InstructionParaphrase operator。

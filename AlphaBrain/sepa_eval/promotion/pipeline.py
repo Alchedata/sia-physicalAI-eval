@@ -11,6 +11,7 @@ Gate execution order:
 Each gate runs in a ThreadPoolExecutor with a configurable timeout.
 The pipeline stops early on DISCARD, ARCHIVE, or timeout (deferred).
 """
+
 from __future__ import annotations
 
 import logging
@@ -45,10 +46,15 @@ class PromotionPipeline:
         gates: list[Any],
         max_parallel_eval_workers: int = 4,
         gate_timeout_minutes: float = 120,
+        run_inline: bool = False,
     ) -> None:
         self.gates = gates
         self.max_parallel_eval_workers = max_parallel_eval_workers
         self.gate_timeout_minutes = gate_timeout_minutes
+        #: When True, gates run synchronously on the caller's thread (no timeout
+        #: enforcement).  Required for real-simulator eval_fns whose rendering
+        #: backend is main-thread-bound (e.g. glfw offscreen contexts on macOS).
+        self.run_inline = run_inline
 
     # ------------------------------------------------------------------
     # Public API
@@ -87,72 +93,86 @@ class PromotionPipeline:
         evidence: dict[str, Any] = {}
         timeout_seconds = self.gate_timeout_minutes * 60
 
+        if self.run_inline:
+            return self._run_gates(candidate, gate_kwargs, evidence, executor=None, timeout_seconds=None)
         with ThreadPoolExecutor(max_workers=self.max_parallel_eval_workers) as executor:
-            for gate in self.gates:
-                gate_name = type(gate).__name__
+            return self._run_gates(candidate, gate_kwargs, evidence, executor, timeout_seconds)
 
-                future = executor.submit(gate.evaluate, candidate, **gate_kwargs)
-                try:
-                    result: GateResult = future.result(timeout=timeout_seconds)
-                except FuturesTimeout:
-                    logger.warning(
-                        "Gate %s timed out after %.2f minutes for task %s.",
-                        gate_name,
-                        self.gate_timeout_minutes,
-                        getattr(candidate, "task_id", "?"),
-                    )
-                    evidence[gate_name] = {"timeout": True}
-                    return "deferred", evidence
-                except Exception as exc:
-                    logger.error(
-                        "Gate %s raised an unexpected exception: %s", gate_name, exc
-                    )
-                    evidence[gate_name] = {"error": str(exc)}
-                    return "deferred", evidence
+    def _run_gates(
+        self,
+        candidate: Any,
+        gate_kwargs: dict,
+        evidence: dict,
+        executor: ThreadPoolExecutor | None,
+        timeout_seconds: float | None,
+    ) -> tuple[str, dict]:
+        """Run gates in order; via *executor* with timeout, or inline when it is None."""
+        for gate in self.gates:
+            gate_name = type(gate).__name__
 
-                evidence[gate_name] = result.evidence
-
-                if result.outcome == GateOutcome.DISCARD:
-                    logger.info(
-                        "Gate %s DISCARDED task %s: %s",
-                        gate_name,
-                        getattr(candidate, "task_id", "?"),
-                        result.message,
-                    )
-                    return "rejected", evidence
-
-                if result.outcome == GateOutcome.ARCHIVE:
-                    logger.info(
-                        "Gate %s ARCHIVED task %s: %s",
-                        gate_name,
-                        getattr(candidate, "task_id", "?"),
-                        result.message,
-                    )
-                    return "archived", evidence
-
-                if result.outcome == GateOutcome.DEFER:
-                    logger.info(
-                        "Gate %s DEFERRED task %s: %s",
-                        gate_name,
-                        getattr(candidate, "task_id", "?"),
-                        result.message,
-                    )
-                    return "deferred", evidence
-
-                if result.outcome == GateOutcome.FAIL:
-                    logger.info(
-                        "Gate %s FAILED task %s: %s",
-                        gate_name,
-                        getattr(candidate, "task_id", "?"),
-                        result.message,
-                    )
-                    return "rejected", evidence
-
-                # GateOutcome.PASS — continue to next gate.
-                logger.debug(
-                    "Gate %s PASSED for task %s.",
+            try:
+                if executor is None:
+                    result: GateResult = gate.evaluate(candidate, **gate_kwargs)
+                else:
+                    future = executor.submit(gate.evaluate, candidate, **gate_kwargs)
+                    result = future.result(timeout=timeout_seconds)
+            except FuturesTimeout:
+                logger.warning(
+                    "Gate %s timed out after %.2f minutes for task %s.",
                     gate_name,
+                    self.gate_timeout_minutes,
                     getattr(candidate, "task_id", "?"),
                 )
+                evidence[gate_name] = {"timeout": True}
+                return "deferred", evidence
+            except Exception as exc:
+                logger.error("Gate %s raised an unexpected exception: %s", gate_name, exc)
+                evidence[gate_name] = {"error": str(exc)}
+                return "deferred", evidence
+
+            evidence[gate_name] = result.evidence
+
+            if result.outcome == GateOutcome.DISCARD:
+                logger.info(
+                    "Gate %s DISCARDED task %s: %s",
+                    gate_name,
+                    getattr(candidate, "task_id", "?"),
+                    result.message,
+                )
+                return "rejected", evidence
+
+            if result.outcome == GateOutcome.ARCHIVE:
+                logger.info(
+                    "Gate %s ARCHIVED task %s: %s",
+                    gate_name,
+                    getattr(candidate, "task_id", "?"),
+                    result.message,
+                )
+                return "archived", evidence
+
+            if result.outcome == GateOutcome.DEFER:
+                logger.info(
+                    "Gate %s DEFERRED task %s: %s",
+                    gate_name,
+                    getattr(candidate, "task_id", "?"),
+                    result.message,
+                )
+                return "deferred", evidence
+
+            if result.outcome == GateOutcome.FAIL:
+                logger.info(
+                    "Gate %s FAILED task %s: %s",
+                    gate_name,
+                    getattr(candidate, "task_id", "?"),
+                    result.message,
+                )
+                return "rejected", evidence
+
+            # GateOutcome.PASS — continue to next gate.
+            logger.debug(
+                "Gate %s PASSED for task %s.",
+                gate_name,
+                getattr(candidate, "task_id", "?"),
+            )
 
         return "promoted", evidence
