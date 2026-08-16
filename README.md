@@ -17,7 +17,7 @@
 
 **SEPA-Eval** turns a static VLA benchmark into a living one. It records rollout failures, clusters them, mutates the worst-case scenarios into harder variants, validates them through a critic ensemble, and automatically promotes them into the active benchmark distribution — closing the loop between evaluation and continual learning.
 
-[Architecture](#architecture) · [Installation](#installation) · [Quick Start](#quick-start) · [CLI Reference](#cli-reference) · [Demo](#customer-demo-workflow) · [Paper](#citation)
+[Architecture](#architecture) · [Installation](#installation) · [Quick Start](#quick-start) · [CLI Reference](#cli-reference) · [Testing](#testing-the-package) · [Demo](#customer-demo-workflow) · [Paper](#citation)
 
 </div>
 
@@ -44,6 +44,8 @@ SEPA-Eval solves all three by making the benchmark itself a first-class output o
 - **Promotion pipeline** — async gate execution with configurable timeouts; evidence recorded per task; human review queue for borderline decisions
 - **Hard-case export** — failed episodes exported as `jsonl` or LeRobot-style parquet datasets, ready for AlphaBrain's continual learning pipeline
 - **Self-evolution loop** — a single orchestrator command runs the full Evaluate → Diagnose → Generate → Validate → Promote → Report cycle
+- **`/judge` VLM endpoint** — the policy server exposes an opt-in HTTP judge endpoint (`--judge_port` / `SEPA_JUDGE_PORT`) so the semantic critic can reuse the loaded VLA/VLM; graceful GPT-4o-mini fallback
+- **Mutation replay** — pose-mutated scene configs are re-applied to LIBERO via MuJoCo init-state injection; distractor mutations via BDDL generation with explicit degradation reporting
 
 ---
 
@@ -72,6 +74,7 @@ AlphaBrain/sepa_eval/
   mutation/       PosePerturbation, MaterialSwap, DistractorAdd, InstructionParaphrase, HorizonExtension
   critics/        Semantic critic (VLM), safety critic, robustness critic
   promotion/      Validation pipeline, promotion gates, human review queue
+  replay/         LIBERO init-state replay for mutated scene configs
   orchestrator/   Self-evolution loop
   exporter/       Hard-case dataset export (jsonl + LeRobot parquet)
   registry/       models.yaml-backed model registry + DB sync
@@ -239,38 +242,94 @@ Artifacts produced: `demo/output/report.md`, `demo/output/report.html`, `demo/de
 
 ---
 
-## Development and Testing
+## Testing the Package
+
+Everything below runs **without any simulator, GPU, or model checkpoint** — it is the fastest way to verify the package works on your machine.
+
+### 1. Install and run the test suite
 
 ```bash
-# Run all SEPA-Eval tests (from repo root)
-pytest AlphaBrain/sepa_eval/tests -v
+python -m venv .venv && source .venv/bin/activate
+pip install -e "./AlphaBrain[dev]"
+pip install pytest
 
-# Lint
+pytest AlphaBrain/sepa_eval/tests -q
+# expected: 140 passed, 1 skipped (the skip is the live-simulator e2e)
+```
+
+> **Known environment pitfall:** on some Anaconda installs an outdated `threadpoolctl`
+> makes scikit-learn's DBSCAN crash with `AttributeError: 'NoneType' object has no
+> attribute 'split'`. Fix with `pip install -U threadpoolctl`.
+
+The suite covers **141 tests** across all modules, including a *contract test layer*
+(`test_contract_real_components.py`) that assembles the real orchestrator, memory,
+mining, mutation, critics, and promotion pipeline together — only simulator rollouts
+and LLM calls are stubbed.
+
+### 2. Smoke-test the CLI on an empty memory
+
+```bash
+cd AlphaBrain
+export SEPA_MEMORY_DIR=$(mktemp -d)/mem
+sepa-eval run        # full 6-step cycle on empty memory — should finish cleanly
+sepa-eval status     # prints metrics incl. critic_latency_ms
+```
+
+### 3. End-to-end walkthrough with synthetic data
+
+Use the [Customer Demo Workflow](#customer-demo-workflow) above: it generates 200
+synthetic LIBERO traces and drives the full mine → mutate → validate → promote →
+report pipeline, producing a browsable HTML dashboard.
+
+### 4. Test the `/judge` endpoint (optional, no model needed)
+
+```bash
+pytest AlphaBrain/sepa_eval/tests/test_judge_endpoint.py -v
+```
+
+This spins up the real HTTP judge server with a fake framework and exercises the
+`SemanticCritic` client against it, including the 501 → GPT-4o-mini fallback path.
+
+### Lint
+
+```bash
 ruff check AlphaBrain/sepa_eval/
 black --check AlphaBrain/
 ```
 
-The test suite has **86 tests** (1 intentionally skipped — Phase 5 live-simulator e2e). Coverage includes: memory and trace persistence, critics, mutation operators, failure classification and clustering, promotion pipeline, exporter, registry, orchestrator evolution loop, reporting and heatmaps, LIBERO and RoboCasa benchmark hooks, and integration-level flows. Production code passes ruff with zero violations.
+Production code passes ruff with zero violations.
 
 ---
 
 ## Current Status
 
-**Implemented and test-covered (86 tests, ruff clean):**
+**Implemented and test-covered (141 tests, ruff clean):**
 - Trace hooks and benchmark adapters (LIBERO, RoboCasa)
-- Persistent memory (SQLite WAL + msgpack) with crash-safe writes
-- Failure classification, clustering, and seed extraction
+- Persistent memory (SQLite WAL + msgpack) with crash-safe writes, portable
+  relative trace paths, `user_version` schema migrations, true critic-score
+  upserts, secondary indexes, thread-safe shared connection, and `fsck` orphan /
+  broken-link reporting
+- Failure classification, clustering, and seed extraction (scene_config recovered
+  from msgpack traces)
 - Full mutation operator suite (5 operators)
-- Promotion gates + async pipeline with evidence recording
-- Orchestrator loop, metrics output, and review CLI
+- Critic ensemble wired into the evolution loop (safety + robustness always on;
+  semantic critic opt-in via config)
+- Promotion gates + async pipeline with per-candidate status/evidence persistence
+- `/judge` HTTP endpoint in the policy server (opt-in via `--judge_port` /
+  `SEPA_JUDGE_PORT`), matching the `SemanticCritic` client contract
+- LIBERO init-state replay for pose mutations + BDDL distractor injection
+  (`sepa_eval/replay/`), with explicit degradation reporting
+- WebSocket policy client with per-request timeout and bounded reconnect/retry
+- Orchestrator loop, real critic-latency metrics, and review CLI
 - Reporting with task×model heatmaps, hard-case export, and model registry
 - `sepa-eval` CLI entry point; all runtime deps declared in `pyproject.toml`
 
 **Pending / in progress:**
-- `/judge` endpoint wiring in `server_policy.py` (needed for local VLM critic)
-- Long-term storage migration beyond SQLite (ANN indexing for large trace volumes)
-- Simulator-specific validation (LIBERO state replay, RoboCasa material override fidelity)
-- Full end-to-end evolution loop verified against a live simulator
+- Full end-to-end evolution loop verified against a live simulator (all code
+  paths are in place; needs a LIBERO environment + model checkpoint)
+- RoboCasa material override fidelity (robosuite texture injection)
+- Long-term storage migration beyond SQLite (DuckDB/Parquet, ANN indexing for
+  large trace volumes)
 
 See [TODOS.md](TODOS.md) for the detailed implementation checklist.
 
@@ -299,6 +358,7 @@ If you use SEPA-Eval in your research, please cite:
 │   └── sepa_eval/           SEPA-Eval implementation
 ├── demo/                    Synthetic trace generator and HTML dashboard renderer
 ├── paper/                   ACM acmart white paper source
+├── docs_analysis/           Architecture evaluation reports + improvement plan
 ├── assets/                  Diagrams and logos
 ├── PRD_SEPA_VLA_Eval.md     Product and system specification
 └── TODOS.md                 Implementation status tracker
