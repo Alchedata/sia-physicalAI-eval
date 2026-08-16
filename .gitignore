@@ -263,3 +263,5 @@ AlphaBrain.egg-info
 *.egg-info
 .gstack/
 eval_memory_real/
+lerobot_data/
+pretrained_models/
